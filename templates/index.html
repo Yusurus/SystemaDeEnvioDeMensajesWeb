@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h2>Panel de Control</h2>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form action="{{ url_for('procesar_envio') }}" method="POST">
+        <p>Presiona el botón para enviar todas las notificaciones pendientes.</p>
+        <button type="submit" class="btn-principal">
+            Enviar Notificaciones Pendientes
+        </button>
+    </form>
+    
+    <hr>
+    
+    <h3>Estado de Asistentes</h3>
+    <p>...próximamente la tabla de datos...</p>
+
+{% endblock %}
