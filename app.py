@@ -12,13 +12,11 @@ app.secret_key = 'tu-llave-secreta-para-mensajes-flash'
 def index():
     """
     CONTROLADOR:
-    1. (En el futuro, llamará al MODELO para pedir datos)
-    2. Renderiza la VISTA 'index.html'.
+    1. Llama al MODELO para obtener todos los asistentes
+    2. Renderiza la VISTA 'index.html' pasándole los datos.
     """
-    # Por ahora, solo muestra la página.
-    # Más adelante, aquí llamaremos a db.obtener_todos_los_asistentes()
-    # y le pasaremos los datos a la plantilla.
-    return render_template('index.html')
+    asistentes = db.obtener_todos_los_asistentes()
+    return render_template('index.html', asistentes=asistentes)
 
 # --- RUTA 2: La acción de enviar (POST) ---
 # Esta es la función del CONTROLADOR que responde al clic del botón
