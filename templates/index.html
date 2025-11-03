@@ -1,64 +1,133 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
+
+{% block title %}Sistema de Notificaciones{% endblock %}
 
 {% block content %}
-    <h2>Panel de Control</h2>
-    
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="flash {{ category }}">{{ message }}</div>
-            {% endfor %}
+    <div id="notificar" class="tab-pane">
+        <h2>Enviar Notificaciones</h2>
+        {% if status %}
+        <div class="status-bar">
+            Envíos en las últimas 24h: <strong>{{ status.count_today }} / {{ status.daily_limit }}</strong>
+            (Límite por lote: {{ config.EMAIL_BATCH_LIMIT }})
+        </div>
         {% endif %}
-    {% endwith %}
 
-    <form action="{{ url_for('procesar_envio') }}" method="POST">
-        <p>Presiona el botón para enviar todas las notificaciones pendientes.</p>
-        <button type="submit" class="btn-principal">
-            Enviar Notificaciones Pendientes
-        </button>
-    </form>
-    
-    <hr>
-    
-    <h3>Estado de Asistentes</h3>
-    
-    {% if asistentes %}
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Nombre Completo</th>
-                    <th>Email</th>
-                    <th>Evento</th>
-                    <th>Estado Certificado</th>
-                    <th>Notificado</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for asistente in asistentes %}
-                <tr>
-                    <td>{{ asistente.id_asistente }}</td>
-                    <td>{{ asistente.nombre_completo }}</td>
-                    <td>{{ asistente.email }}</td>
-                    <td>{{ asistente.nombre_evento }}</td>
-                    <td>
-                        <span class="badge badge-{{ asistente.estado_certificado.lower() }}">
-                            {{ asistente.estado_certificado }}
-                        </span>
-                    </td>
-                    <td>
-                        {% if asistente.notificado == 1 %}
-                            <span class="badge badge-si">✓ Sí</span>
-                        {% else %}
-                            <span class="badge badge-no">✗ No</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <p>No hay asistentes registrados en la base de datos.</p>
-    {% endif %}
+        {% if participants %}
+            <form action="{{ url_for('send_notifications') }}" method="POST">
+                <button type="submit">Notificar Siguiente Lote ({{ participants|length }})</button>
+            </form>
+            <table>
+                <thead> <tr><th>Nombre Completo</th><th>Correo</th><th>Evento</th></tr> </thead>
+                <tbody>
+                    {% for p in participants %}
+                    <tr> <td>{{ p.nombresCompleto }}</td> <td>{{ p.correo }}</td> <td>{{ p.nombre_evento }}</td> </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="empty">¡Excelente! No hay participantes pendientes de notificar.</p>
+            {% if status and status.remaining_today <= 0 and status.count_today > 0 %}
+                <p class="limit-msg">Se ha alcanzado el límite de envíos de 24 horas. Vuelve a intentarlo más tarde.</p>
+            {% endif %}
+        {% endif %}
+    </div>
 
+    <div id="reportes" class="tab-pane">
+        <h2>Log de Notificaciones Enviadas</h2>
+
+        <div class="report-controls">
+            <form action="{{ url_for('index') }}" method="GET" class="search-form" id="reportes-search-form">
+                <div class="form-group">
+                    <label for="search_name">Buscar por Nombre</label>
+                    <input type="text" id="search_name" name="search_name" value="{{ search_name }}" autocomplete="off" placeholder="Empieza a escribir...">
+                </div>
+                <button type="submit">Buscar</button>
+            </form>
+
+            <a href="{{ url_for('export_excel', search_name=search_name) }}" class="export-button" id="exportar-excel">
+                Exportar a Excel
+            </a>
+        </div>
+
+        {% if logs %}
+            <table id="tabla-reportes">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Correo</th>
+                        <th>Fecha y Hora de Notificación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td class="col-nombre">{{ log.nombre }}</td>
+                        <td>{{ log.correo }}</td>
+                        <td>{{ log.fecha.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <p class="empty client-no-results" id="no-resultados" style="display:none;">No se encontraron resultados para "<span id="nores-q"></span>".</p>
+        {% else %}
+            {% if search_name %}
+            <p class="empty">No se encontraron resultados para "{{ search_name }}".</p>
+            {% else %}
+            <p class="empty">Aún no se ha enviado ninguna notificación.</p>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    <div id="administrar" class="tab-pane">
+        <h2>Administrar Datos</h2>
+        <div class="form-grid">
+            <div class="form-column">
+                <h3>Agregar Nuevo Evento</h3>
+                <form action="{{ url_for('add_event') }}" method="POST">
+                    <div class="form-group"> <label for="nombre_evento">Nombre del Evento</label> <input type="text" id="nombre_evento" name="nombre_evento" required> </div>
+                    <div class="form-group"> <label for="fecha_evento">Fecha del Evento</label> <input type="date" id="fecha_evento" name="fecha_evento" required> </div>
+                    <div class="form-group"> <button type="submit">Guardar Evento</button> </div>
+                </form>
+            </div>
+            <div class="form-column">
+                <h3>Agregar Nuevo Participante</h3>
+                <form action="{{ url_for('add_participant') }}" method="POST">
+                    <div class="form-group"> <label for="nombres_participante">Nombres Completos</label> <input type="text" id="nombres_participante" name="nombres_participante" required> </div>
+                    <div class="form-group"> <label for="correo_participante">Correo Electrónico</label> <input type="email" id="correo_participante" name="correo_participante" required> </div>
+                    <div class="form-group">
+                        <label for="evento_id">Asignar a Evento</label>
+                        <select id="evento_id" name="evento_id" required>
+                            <option value="" disabled selected>-- Selecciona un evento --</option>
+                            {% for evento in events_list %}
+                            <option value="{{ evento.idEvento }}">{{ evento.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group"> <button type="submit">Guardar Participante</button> </div>
+                </form>
+            </div>
+        </div>
+        <section class="section full-width">
+            <h3>Importar Participantes desde Excel</h3>
+            <form action="{{ url_for('upload_excel') }}" method="POST" enctype="multipart/form-data" class="form-import">
+                <div class="form-group">
+                    <label for="evento_id_excel">1. Selecciona el Evento de destino</label>
+                    <select id="evento_id_excel" name="evento_id" required>
+                        <option value="" disabled selected>-- Selecciona un evento --</option>
+                        {% for evento in events_list %}
+                        <option value="{{ evento.idEvento }}">{{ evento.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="excel_file">2. Selecciona el archivo Excel (.xlsx)</label>
+                    <input type="file" id="excel_file" name="excel_file" accept=".xlsx" required>
+                    <small class="hint">El Excel debe tener solo dos columnas: <strong>NombresCompletos</strong> y <strong>CorreoElectronico</strong></small>
+                </div>
+                <div class="form-group">
+                    <button type="submit">Importar Participantes</button>
+                </div>
+            </form>
+        </section>
+    </div>
 {% endblock %}

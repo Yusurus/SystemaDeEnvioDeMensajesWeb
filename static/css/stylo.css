@@ -1,0 +1,238 @@
+/* --- Estilos Generales --- */
+:root {
+  --color-primario: #007bff;
+  --color-secundario: #6c757d;
+  --color-exito: #28a745;
+  --color-advertencia: #ffc107;
+  --color-peligro: #dc3545;
+  --color-info: #17a2b8;
+  --color-fondo: #f8f9fa;
+  --color-texto: #212529;
+  --color-borde: #dee2e6;
+  --color-blanco: #fff;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  margin: 0;
+  background-color: var(--color-fondo);
+  color: var(--color-texto);
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
+.container {
+  width: 100%;
+  max-width: 1200px;
+  background: var(--color-blanco);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.page-header h1 {
+  color: #333;
+  margin: 0;
+  padding: 20px 25px;
+  background-color: var(--color-fondo);
+  border-bottom: 1px solid var(--color-borde);
+}
+
+h2 {
+  color: #333;
+  margin: 0 0 20px 0;
+  padding: 0;
+  border: none;
+}
+
+h3 {
+  color: #333;
+  font-size: 1.25em;
+  padding: 15px 0 10px 0;
+  border-bottom: 2px solid var(--color-primario);
+  margin: 0 0 20px 0;
+}
+
+.flash-wrapper { padding: 25px 25px 0 25px; }
+
+/* --- Estilos de Pestañas (Tabs) --- */
+.tab-nav {
+  display: flex;
+  border-bottom: 2px solid var(--color-borde);
+  background: #fdfdfd;
+}
+
+.tab-button {
+  padding: 15px 25px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-secundario);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+}
+
+.tab-button:hover { color: #000; }
+
+.tab-button.active {
+  color: var(--color-primario);
+  border-bottom-color: var(--color-primario);
+}
+
+.tab-content { padding: 25px; }
+
+.tab-pane { display: none; }
+
+.tab-pane.active { display: block; }
+
+/* --- Estilos de Componentes --- */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+th, td {
+  padding: 12px 15px;
+  border: 1px solid var(--color-borde);
+  text-align: left;
+  vertical-align: top;
+}
+
+th { background-color: var(--color-fondo); font-weight: 600; }
+
+tr:nth-child(even) { background-color: #fcfcfc; }
+
+button[type="submit"] {
+  background-color: var(--color-exito);
+  color: white;
+  padding: 12px 22px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+
+button[type="submit"]:hover { background-color: #218838; }
+
+.empty, .limit-msg {
+  color: var(--color-secundario);
+  font-style: italic;
+  font-size: 1.1em;
+  text-align: center;
+  padding: 40px;
+  background: var(--color-fondo);
+  border-radius: 5px;
+}
+
+.status-bar {
+  background-color: var(--color-info);
+  color: var(--color-blanco);
+  padding: 15px 20px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  font-size: 1.1em;
+  font-weight: 500;
+}
+
+.flash {
+  padding: 15px;
+  margin-bottom: 20px;
+  border-radius: 5px;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+.warning { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
+.info    { background-color: #d1ecf1; color: #0c5460; border-color: #bee5eb; }
+
+/* --- Estilos para Formularios --- */
+.form-grid { display: flex; gap: 30px; }
+.form-column { flex: 1; min-width: 0; }
+.form-group { margin-bottom: 15px; }
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #495057;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--color-borde);
+  border-radius: 5px;
+  box-sizing: border-box;
+  font-size: 16px;
+  background: var(--color-blanco);
+}
+
+.form-group button {
+  background-color: var(--color-primario);
+  margin-top: 10px;
+}
+
+.form-group button:hover { background-color: #0069d9; }
+
+/* --- Buscador y Exportar --- */
+.report-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 20px;
+  gap: 20px;
+}
+
+.search-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-grow: 1;
+}
+
+.search-form .form-group {
+  margin-bottom: 0;
+  flex-grow: 1;
+}
+
+.search-form button,
+.export-button {
+  background-color: var(--color-secundario);
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  text-decoration: none; /* Para el <a> */
+  height: 42px; /* Alinear con el input */
+  box-sizing: border-box;
+}
+
+.search-form button:hover,
+.export-button:hover { background-color: #5a6268; }
+
+/* --- Secciones utilitarias --- */
+.section { margin-top: 30px; }
+.full-width { flex-basis: 100%; }
+.form-import { max-width: 680px; }
+.hint { color: #555; margin-top: 5px; display: block; }
+
+/* --- Responsivo --- */
+@media (max-width: 768px) {
+  .form-grid { flex-direction: column; }
+  .report-controls { flex-direction: column; align-items: stretch; }
+  .search-form { width: 100%; }
+  .form-import { max-width: 100%; }
+}
