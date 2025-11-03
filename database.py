@@ -1,12 +1,14 @@
 # 📄 database.py
 
 import mysql.connector
+import os
 
 # --- CONFIGURACIÓN DE BD ---
-DB_HOST = "mysql-yusurus.alwaysdata.net"
-DB_USER = "yusurus_sms"
-DB_PASSWORD = "12admin34"
-DB_NAME = "yusurus_enviar_email"
+DB_HOST = os.getenv("DB_HOST", "mysql-yusurus.alwaysdata.net")
+DB_USER = os.getenv("DB_USER", "yusurus_sms")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "12admin34")
+DB_NAME = os.getenv("DB_NAME", "yusurus_enviar_email")
+DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 def get_db_connection():
     try:
