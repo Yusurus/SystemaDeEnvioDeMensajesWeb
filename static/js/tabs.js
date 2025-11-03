@@ -1,15 +1,17 @@
+/**
+ * Sistema de pestañas con Bootstrap 5
+ */
 function openTab(tabName) {
-  var i, tabcontent, tabbuttons;
-
   // Ocultar todos los contenidos de las pestañas
-  tabcontent = document.getElementsByClassName("tab-pane");
-  for (i = 0; i < tabcontent.length; i++) {
+  var tabcontent = document.getElementsByClassName("tab-pane");
+  for (var i = 0; i < tabcontent.length; i++) {
     tabcontent[i].style.display = "none";
+    tabcontent[i].classList.remove("active");
   }
 
   // Quitar la clase "active" de todos los botones
-  tabbuttons = document.getElementsByClassName("tab-button");
-  for (i = 0; i < tabbuttons.length; i++) {
+  var tabbuttons = document.getElementsByClassName("nav-link");
+  for (var i = 0; i < tabbuttons.length; i++) {
     tabbuttons[i].classList.remove("active");
   }
 
@@ -17,14 +19,13 @@ function openTab(tabName) {
   var tabToShow = document.getElementById(tabName);
   if (tabToShow) {
     tabToShow.style.display = "block";
+    tabToShow.classList.add("active");
   }
 
   // Añadir la clase "active" al botón que abrió la pestaña
-  var buttons = document.getElementsByClassName("tab-button");
-  for (i = 0; i < buttons.length; i++) {
-    if (buttons[i].getAttribute("onclick") === "openTab('" + tabName + "')") {
-      buttons[i].classList.add("active");
-    }
+  var currentTabButton = document.getElementById("tab-" + tabName);
+  if (currentTabButton) {
+    currentTabButton.classList.add("active");
   }
 }
 

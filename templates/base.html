@@ -4,37 +4,84 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Sistema de Notificaciones{% endblock %}</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/stylo.css') }}">
   {% block extra_head %}{% endblock %}
 </head>
-<body data-active-tab="{{ active_tab | default('notificar') }}">
+<body data-active-tab="{{ active_tab | default('notificar') }}" class="bg-light">
 
-  <div class="container">
-    <header class="page-header">
-      <h1>Sistema de Notificación de Certificados</h1>
-    </header>
+  <!-- Navbar Superior -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+    <div class="container">
+      <a class="navbar-brand d-flex align-items-center" href="#">
+        <i class="bi bi-envelope-check-fill me-2 fs-4"></i>
+        <span class="fw-bold">Sistema de Notificación de Certificados</span>
+      </a>
+    </div>
+  </nav>
 
-    <nav class="tab-nav">
-      <button class="tab-button" onclick="openTab('notificar')">Notificar</button>
-      <button class="tab-button" onclick="openTab('reportes')">Reportes</button>
-      <button class="tab-button" onclick="openTab('administrar')">Administrar</button>
-    </nav>
+  <div class="container py-4">
+    
+    <!-- Tabs con estilo mejorado -->
+    <ul class="nav nav-pills nav-fill mb-4 shadow-sm rounded" id="mainTabNav" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link rounded-0" onclick="openTab('notificar')" id="tab-notificar" role="tab">
+          <i class="bi bi-send-fill me-2"></i>Notificar
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link rounded-0" onclick="openTab('reportes')" id="tab-reportes" role="tab">
+          <i class="bi bi-file-earmark-text-fill me-2"></i>Reportes
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link rounded-0" onclick="openTab('administrar')" id="tab-administrar" role="tab">
+          <i class="bi bi-gear-fill me-2"></i>Administrar
+        </button>
+      </li>
+    </ul>
 
+    <!-- Mensajes Flash -->
     <div class="flash-wrapper">
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
           {% for category, message in messages %}
-            <div class="flash {{ category }}">{{ message }}</div>
+            <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+              {% if category == 'success' %}
+                <i class="bi bi-check-circle-fill me-2"></i>
+              {% elif category == 'danger' %}
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+              {% elif category == 'warning' %}
+                <i class="bi bi-exclamation-circle-fill me-2"></i>
+              {% else %}
+                <i class="bi bi-info-circle-fill me-2"></i>
+              {% endif %}
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+            </div>
           {% endfor %}
         {% endif %}
       {% endwith %}
     </div>
 
+    <!-- Contenido de las tabs -->
     <div class="tab-content">
       {% block content %}{% endblock %}
     </div>
   </div>
 
+  <!-- Footer -->
+  <footer class="bg-dark text-white text-center py-3 mt-5">
+    <div class="container">
+      <p class="mb-0"><i class="bi bi-c-circle me-1"></i>2025 Sistema de Notificaciones - Todos los derechos reservados</p>
+    </div>
+  </footer>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="{{ url_for('static', filename='js/tabs.js') }}"></script>
   <script src="{{ url_for('static', filename='js/search.js') }}"></script>
   {% block extra_scripts %}{% endblock %}
