@@ -1,64 +1,258 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
+
+{% block title %}Sistema de Notificaciones{% endblock %}
 
 {% block content %}
-    <h2>Panel de Control</h2>
-    
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="flash {{ category }}">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
 
-    <form action="{{ url_for('procesar_envio') }}" method="POST">
-        <p>Presiona el botón para enviar todas las notificaciones pendientes.</p>
-        <button type="submit" class="btn-principal">
-            Enviar Notificaciones Pendientes
-        </button>
-    </form>
-    
-    <hr>
-    
-    <h3>Estado de Asistentes</h3>
-    
-    {% if asistentes %}
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Nombre Completo</th>
-                    <th>Email</th>
-                    <th>Evento</th>
-                    <th>Estado Certificado</th>
-                    <th>Notificado</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for asistente in asistentes %}
-                <tr>
-                    <td>{{ asistente.id_asistente }}</td>
-                    <td>{{ asistente.nombre_completo }}</td>
-                    <td>{{ asistente.email }}</td>
-                    <td>{{ asistente.nombre_evento }}</td>
-                    <td>
-                        <span class="badge badge-{{ asistente.estado_certificado.lower() }}">
-                            {{ asistente.estado_certificado }}
-                        </span>
-                    </td>
-                    <td>
-                        {% if asistente.notificado == 1 %}
-                            <span class="badge badge-si">✓ Sí</span>
-                        {% else %}
-                            <span class="badge badge-no">✗ No</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <p>No hay asistentes registrados en la base de datos.</p>
-    {% endif %}
+    <!-- TAB: NOTIFICAR -->
+    <div id="notificar" class="tab-pane">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-send-fill me-2"></i>Enviar Notificaciones</h4>
+            </div>
+            <div class="card-body">
+                {% if status %}
+                <div class="alert alert-info d-flex align-items-center mb-3" role="alert">
+                    <i class="bi bi-info-circle-fill me-3 fs-4"></i>
+                    <div>
+                        <strong>Envíos en las últimas 24h:</strong> {{ status.count_today }} / {{ status.daily_limit }}
+                        <span class="ms-3"><strong>Límite por lote:</strong> {{ config.EMAIL_BATCH_LIMIT }}</span>
+                    </div>
+                </div>
+                {% endif %}
 
+                {% if participants %}
+                    <form action="{{ url_for('send_notifications') }}" method="POST" class="mb-3">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="bi bi-send-check-fill me-2"></i>
+                            Notificar Siguiente Lote ({{ participants|length }})
+                        </button>
+                    </form>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover align-middle">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th><i class="bi bi-person-fill me-2"></i>Nombre Completo</th>
+                                    <th><i class="bi bi-envelope-fill me-2"></i>Correo</th>
+                                    <th><i class="bi bi-calendar-event me-2"></i>Evento</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in participants %}
+                                <tr>
+                                    <td>{{ p.nombresCompleto }}</td>
+                                    <td>{{ p.correo }}</td>
+                                    <td><span class="badge bg-secondary">{{ p.nombre_evento }}</span></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-success text-center" role="alert">
+                        <i class="bi bi-check-circle-fill fs-1 d-block mb-2"></i>
+                        <h5>¡Excelente! No hay participantes pendientes de notificar.</h5>
+                    </div>
+                    {% if status and status.remaining_today <= 0 and status.count_today > 0 %}
+                    <div class="alert alert-warning text-center" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        Se ha alcanzado el límite de envíos de 24 horas. Vuelve a intentarlo más tarde.
+                    </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: REPORTES -->
+    <div id="reportes" class="tab-pane">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-file-earmark-text-fill me-2"></i>Log de Notificaciones Enviadas</h4>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <form action="{{ url_for('index') }}" method="GET" id="reportes-search-form">
+                            <label for="search_name" class="form-label fw-bold">
+                                <i class="bi bi-search me-2"></i>Buscar por Nombre
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-filter"></i></span>
+                                <input type="text" id="search_name" name="search_name" value="{{ search_name }}" 
+                                       autocomplete="off" placeholder="Empieza a escribir..." class="form-control">
+                                <button type="submit" class="btn btn-secondary">
+                                    <i class="bi bi-search me-1"></i>Buscar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <a href="{{ url_for('export_excel', search_name=search_name) }}" 
+                           class="btn btn-success w-100" id="exportar-excel">
+                            <i class="bi bi-file-earmark-excel-fill me-2"></i>Exportar a Excel
+                        </a>
+                    </div>
+                </div>
+
+                {% if logs %}
+                    <div class="table-responsive">
+                        <table id="tabla-reportes" class="table table-striped table-hover align-middle">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th><i class="bi bi-person-fill me-2"></i>Nombre</th>
+                                    <th><i class="bi bi-envelope-fill me-2"></i>Correo</th>
+                                    <th><i class="bi bi-clock-fill me-2"></i>Fecha y Hora de Notificación</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs %}
+                                <tr>
+                                    <td class="col-nombre">{{ log.nombre }}</td>
+                                    <td>{{ log.correo }}</td>
+                                    <td><span class="badge bg-info">{{ log.fecha.strftime('%Y-%m-%d %H:%M:%S') }}</span></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="alert alert-warning text-center client-no-results" id="no-resultados" style="display:none;">
+                        <i class="bi bi-exclamation-circle-fill me-2"></i>
+                        No se encontraron resultados para "<strong><span id="nores-q"></span></strong>".
+                    </div>
+                {% else %}
+                    {% if search_name %}
+                    <div class="alert alert-warning text-center" role="alert">
+                        <i class="bi bi-exclamation-circle-fill me-2"></i>
+                        No se encontraron resultados para "<strong>{{ search_name }}</strong>".
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info text-center" role="alert">
+                        <i class="bi bi-info-circle-fill fs-1 d-block mb-2"></i>
+                        <h5>Aún no se ha enviado ninguna notificación.</h5>
+                    </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: ADMINISTRAR -->
+    <div id="administrar" class="tab-pane">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-gear-fill me-2"></i>Administrar Datos</h4>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <!-- Agregar Evento -->
+                    <div class="col-md-6">
+                        <div class="card border-primary h-100">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0"><i class="bi bi-calendar-plus me-2"></i>Agregar Nuevo Evento</h5>
+                            </div>
+                            <div class="card-body">
+                                <form action="{{ url_for('add_event') }}" method="POST">
+                                    <div class="mb-3">
+                                        <label for="nombre_evento" class="form-label">
+                                            <i class="bi bi-tag-fill me-2"></i>Nombre del Evento
+                                        </label>
+                                        <input type="text" id="nombre_evento" name="nombre_evento" 
+                                               class="form-control" placeholder="Ej: Capacitación 2025" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="fecha_evento" class="form-label">
+                                            <i class="bi bi-calendar-date me-2"></i>Fecha del Evento
+                                        </label>
+                                        <input type="date" id="fecha_evento" name="fecha_evento" 
+                                               class="form-control" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="bi bi-save-fill me-2"></i>Guardar Evento
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Agregar Participante -->
+                    <div class="col-md-6">
+                        <div class="card border-success h-100">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0"><i class="bi bi-person-plus-fill me-2"></i>Agregar Nuevo Participante</h5>
+                            </div>
+                            <div class="card-body">
+                                <form action="{{ url_for('add_participant') }}" method="POST">
+                                    <div class="mb-3">
+                                        <label for="nombres_participante" class="form-label">
+                                            <i class="bi bi-person-fill me-2"></i>Nombres Completos
+                                        </label>
+                                        <input type="text" id="nombres_participante" name="nombres_participante" 
+                                               class="form-control" placeholder="Ej: Juan Pérez García" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="correo_participante" class="form-label">
+                                            <i class="bi bi-envelope-fill me-2"></i>Correo Electrónico
+                                        </label>
+                                        <input type="email" id="correo_participante" name="correo_participante" 
+                                               class="form-control" placeholder="correo@ejemplo.com" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="evento_id" class="form-label">
+                                            <i class="bi bi-calendar-event me-2"></i>Asignar a Evento
+                                        </label>
+                                        <select id="evento_id" name="evento_id" class="form-select" required>
+                                            <option value="" disabled selected>-- Selecciona un evento --</option>
+                                            {% for evento in events_list %}
+                                            <option value="{{ evento.idEvento }}">{{ evento.nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <button type="submit" class="btn btn-success w-100">
+                                        <i class="bi bi-save-fill me-2"></i>Guardar Participante
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Importar desde Excel -->
+        <div class="card shadow-sm border-warning">
+            <div class="card-header bg-warning">
+                <h5 class="mb-0"><i class="bi bi-file-earmark-excel-fill me-2"></i>Importar Participantes desde Excel</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('upload_excel') }}" method="POST" enctype="multipart/form-data" style="max-width: 700px;">
+                    <div class="mb-3">
+                        <label for="evento_id_excel" class="form-label fw-bold">
+                            <span class="badge bg-primary me-2">1</span>Selecciona el Evento de destino
+                        </label>
+                        <select id="evento_id_excel" name="evento_id" class="form-select" required>
+                            <option value="" disabled selected>-- Selecciona un evento --</option>
+                            {% for evento in events_list %}
+                            <option value="{{ evento.idEvento }}">{{ evento.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="excel_file" class="form-label fw-bold">
+                            <span class="badge bg-primary me-2">2</span>Selecciona el archivo Excel (.xlsx)
+                        </label>
+                        <input type="file" id="excel_file" name="excel_file" accept=".xlsx" class="form-control" required>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle me-1"></i>
+                            El Excel debe tener solo dos columnas: <strong>NombresCompletos</strong> y <strong>CorreoElectronico</strong>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-warning btn-lg">
+                        <i class="bi bi-upload me-2"></i>Importar Participantes
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
 {% endblock %}
