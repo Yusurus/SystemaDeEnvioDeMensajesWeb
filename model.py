@@ -26,10 +26,6 @@ def get_24h_rolling_sent_count():
     Consulta 2 (CORREGIDA): Cuenta cuántos participantes fueron notificados
     en las ÚLTIMAS 24 HORAS exactas (ventana continua).
     """
-    #
-    # ESTA ES LA LÓGICA CORRECTA
-    # Compara la 'fecha' del log con la hora actual MENOS 24 horas.
-    #
     query = """
     SELECT COUNT(idLog_perticipanteNotificado) AS total_24h
     FROM Log_perticipantesNotificados
@@ -97,7 +93,6 @@ def update_participant_status(participant_id):
     Consulta 2: Actualiza el estado de un participante a 'si'.
     Esto debería disparar tu Trigger existente para llenar la tabla Log.
     """
-    # OJO: La tabla se llama 'Perticipantes'
     query = "UPDATE Perticipantes SET estadoNotificado = 'si' WHERE idPerticipante = %s"
     
     conn = get_db_connection()
@@ -208,7 +203,6 @@ def add_new_participant(nombres, correo, id_evento):
     Consulta 6: Inserta un nuevo participante en la BD.
     El estado por defecto es 'no' notificado.
     """
-    # OJO: La tabla se llama 'Perticipantes'
     query = """
     INSERT INTO Perticipantes (nombresCompleto, correo, estadoNotificado, fk_idEvento) 
     VALUES (%s, %s, 'no', %s)
