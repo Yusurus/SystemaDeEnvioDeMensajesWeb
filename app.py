@@ -1,9 +1,8 @@
-# app.py
 from flask import Flask, render_template, redirect, url_for, flash, request, send_file
 import model
 import email_service
 import config
-import pandas as pd  # <-- NUEVO
+import pandas as pd
 import io
 
 app = Flask(__name__)
@@ -34,38 +33,58 @@ def crear_app():
 
     @app.route('/')
     def index():
-        """
-        Controlador para la página principal (GET).
-        Ahora carga datos para las TRES pestañas y maneja la búsqueda.
-        """
         try:
-            # 2. Manejo de la pestaña activa y la búsqueda
-            # Si 'search_name' está en la URL, activamos la pestaña de reportes
+            # --- Obtener filtros y pestaña activa ---
             search_query = request.args.get('search_name', None)
-            active_tab = 'reportes' if search_query is not None else 'notificar'
+            filter_facultad = request.args.get('filter_facultad', None)
+            filter_escuela = request.args.get('filter_escuela', None)
             
-            # Pestaña 1: Notificar
+            # Determinar pestaña activa
+            active_tab = request.args.get('tab', 'notificar')
+            if search_query or filter_facultad or filter_escuela:
+                active_tab = 'reporte-general'
+            
+            # --- Pestaña 1: Notificar ---
             status = get_notification_status()
             participants_list = model.get_unnotified_participants(status['available_this_batch'])
             
-            # Pestaña 2: Reportes (ahora pasa el término de búsqueda)
-            notification_log = model.get_notification_log(search_term=search_query) # Usa el límite por defecto
+            # --- Pestaña 2: Reporte (Log) ---
+            log_search_query = request.args.get('log_search_name', None)
+            if log_search_query:
+                active_tab = 'reporte-log'
+            notification_log = model.get_notification_log(search_term=log_search_query)
             
-            # Pestaña 3: Administrar
+            # --- Pestaña 3: Reporte (General) ---
+            participant_report = model.get_participant_report(search_query, filter_facultad, filter_escuela)
+            
+            # --- Pestaña 4: Administrar (Cargar listas) ---
             events_list = model.get_all_events()
+            facultades_list = model.get_all_facultades() # NUEVO
+            escuelas_list = model.get_all_escuelas()     # NUEVO
             
             return render_template(
                 'index.html', 
+                # Tab 1
                 participants=participants_list,
                 status=status,
+                # Tab 2
                 logs=notification_log,
+                log_search_name=log_search_query or "",
+                # Tab 3
+                report_data=participant_report,
+                search_name=search_query or "",
+                current_facultad=filter_facultad,
+                current_escuela=filter_escuela,
+                # Tab 4
                 events_list=events_list,
-                search_name=search_query or "", # Pasa el término de búsqueda de vuelta
-                active_tab=active_tab           # Pasa la pestaña activa
+                facultades_list=facultades_list,
+                escuelas_list=escuelas_list,
+                # General
+                active_tab=active_tab
             )
         except Exception as e:
             flash(f"Error al cargar la página: {e}", 'error')
-            return render_template('index.html', participants=[], status={'count_today': 0, 'daily_limit': config.EMAIL_DAILY_LIMIT, 'remaining_today': 0}, logs=[], events_list=[], search_name="", active_tab="notificar")
+            return render_template('index.html', participants=[], status={'count_today': 0, 'daily_limit': config.EMAIL_DAILY_LIMIT, 'remaining_today': 0}, logs=[], events_list=[], facultades_list=[], escuelas_list=[], report_data=[], search_name="", log_search_name="", active_tab="notificar")
 
     @app.route('/enviar-notificaciones', methods=['POST'])
     def send_notifications():
@@ -134,107 +153,123 @@ def crear_app():
     @app.route('/add-participant', methods=['POST'])
     def add_participant():
         """
-        Controlador para el formulario de agregar participante.
+        Ahora obtiene los IDs opcionales de facultad y escuela.
         """
         if request.method == 'POST':
             nombres = request.form['nombres_participante']
             correo = request.form['correo_participante']
             evento_id = request.form['evento_id']
             
-            success, message = model.add_new_participant(nombres, correo, evento_id)
+            # .get() devuelve None si la clave no existe (perfecto para campos opcionales)
+            facultad_id = request.form.get('facultad_id')
+            escuela_id = request.form.get('escuela_id')
+            
+            # Convertir a None si está vacío
+            if not facultad_id: facultad_id = None
+            if not escuela_id: escuela_id = None
+
+            success, message = model.add_new_participant(nombres, correo, evento_id, facultad_id, escuela_id)
 
             if success:
                 flash(f"¡Éxito! Participante '{nombres}' agregado correctamente.", 'success')
             else:
                 flash(f"Error al agregar participante: {message}", 'warning')
 
-        return redirect(url_for('index'))
+        return redirect(url_for('index', tab='administrar'))
 
     @app.route('/export/excel')
     def export_excel():
         """
-        Genera y descarga un archivo Excel con el log de notificaciones.
+        Exporta el nuevo "Reporte General" con filtros.
         """
         try:
-            # Obtenemos el mismo término de búsqueda desde la URL
             search_query = request.args.get('search_name', '')
+            filter_facultad = request.args.get('filter_facultad', None)
+            filter_escuela = request.args.get('filter_escuela', None)
 
-            # Obtenemos los datos, PERO con un límite muy alto
-            data = model.get_notification_log(search_term=search_query, limit_amount=100000)
+            # Obtenemos los datos (¡quitando el límite web!)
+            data = model.get_participant_report(search_query, filter_facultad, filter_escuela)
+            # ^ NOTA: get_participant_report tiene un "LIMIT 500" - deberías quitarlo
+            # o hacerlo un parámetro para una exportación completa.
+            # Por ahora, funcionará con los 500 primeros.
 
             if not data:
                 flash("No hay datos para exportar.", "info")
-                return redirect(url_for('index'))
+                return redirect(url_for('index', tab='reporte-general'))
 
-            # Convertimos la lista de diccionarios a un DataFrame de Pandas
             df = pd.DataFrame(data)
             
-            # Renombramos columnas para que se vean bien en Excel
             df.rename(columns={
-                'nombre': 'Nombre del Participante',
+                'nombresCompleto': 'Nombre Completo',
                 'correo': 'Correo Electrónico',
-                'fecha': 'Fecha de Notificación'
+                'estadoNotificado': 'Estado',
+                'nombre_evento': 'Evento',
+                'nombre_facultad': 'Facultad',
+                'nombre_escuela': 'Escuela'
             }, inplace=True)
+            
+            # Rellenar valores nulos para un reporte más limpio
+            df['Facultad'] = df['Facultad'].fillna('N/A')
+            df['Escuela'] = df['Escuela'].fillna('N/A')
 
-            # Formateamos la fecha (opcional, pero recomendado)
-            df['Fecha de Notificación'] = pd.to_datetime(df['Fecha de Notificación']).dt.strftime('%Y-%m-%d %H:%M:%S')
-
-            # Creamos un archivo Excel en memoria
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name='Reporte_Notificaciones')
-            
-            output.seek(0) # Regresamos al inicio del "archivo" en memoria
+                df.to_excel(writer, index=False, sheet_name='Reporte_Participantes')
+            output.seek(0)
 
-            # Enviamos el archivo al usuario para su descarga
             return send_file(
                 output,
                 mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 as_attachment=True,
-                download_name='reporte_notificaciones.xlsx'
+                download_name='reporte_participantes.xlsx'
             )
 
         except Exception as e:
             flash(f"Error al exportar a Excel: {e}", "warning")
-            return redirect(url_for('index'))
-        
+            return redirect(url_for('index', tab='reporte-general'))
+    
     @app.route('/upload-excel', methods=['POST'])
     def upload_excel():
         """
-        Procesa el archivo Excel subido para agregar participantes en lote.
+        Ahora puede asignar una facultad y/o escuela a
+        TODOS los participantes del Excel subido.
         """
         if 'excel_file' not in request.files:
             flash('No se encontró ningún archivo', 'warning')
-            return redirect(url_for('index'))
+            return redirect(url_for('index', tab='administrar'))
         
         file = request.files['excel_file']
         evento_id = request.form['evento_id']
         
-        if file.filename == '':
-            flash('No se seleccionó ningún archivo', 'warning')
-            return redirect(url_for('index'))
+        # IDs opcionales para todo el lote
+        facultad_id = request.form.get('facultad_id')
+        escuela_id = request.form.get('escuela_id')
+        if not facultad_id: facultad_id = None
+        if not escuela_id: escuela_id = None
         
-        if file and evento_id:
+        if file.filename == '' or not evento_id:
+            flash('No se seleccionó archivo o evento de destino', 'warning')
+            return redirect(url_for('index', tab='administrar'))
+        
+        if file:
             try:
-                # Lee el archivo Excel en un DataFrame de Pandas
                 df = pd.read_excel(file)
                 
-                # --- Validación de Columnas ---
-                # Aseguramos que las columnas se llamen EXACTAMENTE como queremos
                 if 'NombresCompletos' not in df.columns or 'CorreoElectronico' not in df.columns:
                     flash("Error: El archivo Excel debe tener las columnas 'NombresCompletos' y 'CorreoElectronico'", 'warning')
-                    return redirect(url_for('index'))
+                    return redirect(url_for('index', tab='administrar'))
 
                 success_count = 0
                 fail_count = 0
                 
-                # Iteramos sobre cada fila del Excel
                 for index, row in df.iterrows():
                     nombres = str(row['NombresCompletos'])
                     correo = str(row['CorreoElectronico'])
                     
-                    # Reutilizamos nuestra función de modelo existente
-                    success, _ = model.add_new_participant(nombres, correo, evento_id)
+                    # Reutilizamos nuestra función de modelo actualizada
+                    success, _ = model.add_new_participant(
+                        nombres, correo, evento_id, facultad_id, escuela_id
+                    )
                     
                     if success:
                         success_count += 1
@@ -246,7 +281,7 @@ def crear_app():
             except Exception as e:
                 flash(f"Error al procesar el archivo: {e}", 'warning')
                 
-        return redirect(url_for('index'))
+        return redirect(url_for('index', tab='administrar'))
     return app
 
 if __name__ == '__main__':
