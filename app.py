@@ -1,8 +1,5 @@
 # app.py
-from flask import (
-    Flask, render_template, redirect, url_for, 
-    flash, request, send_file
-)
+from flask import Flask, render_template, redirect, url_for, flash, request, send_file
 import model
 import email_service
 import config
