@@ -112,49 +112,6 @@ def update_participant_status(participant_id):
         cursor.close()
         conn.close()
         
-def get_notification_log(search_term=None, limit_amount=200):
-    """
-    Obtiene el Log de notificaciones,
-    con filtrado de búsqueda opcional.
-    """
-    params = []
-    
-    # Construcción dinámica de la consulta
-    query_parts = [
-        "SELECT nombre, correo, fecha",
-        "FROM Log_participantesNotificados"
-    ]
-    
-    # Si hay un término de búsqueda, añadimos un WHERE
-    if search_term and search_term.strip():
-        query_parts.append("WHERE nombre LIKE %s")
-        params.append(f"%{search_term.strip()}%") # % para búsqueda parcial
-        
-    query_parts.append("ORDER BY fecha DESC")
-    
-    # Añadimos el límite
-    query_parts.append("LIMIT %s")
-    params.append(limit_amount)
-
-    # Unimos todo
-    final_query = " ".join(query_parts)
-    
-    conn = get_db_connection()
-    if not conn:
-        return []
-    
-    cursor = conn.cursor(dictionary=True)
-    try:
-        cursor.execute(final_query, tuple(params))
-        logs = cursor.fetchall()
-        return logs
-    except mysql.connector.Error as err:
-        print(f"Error al obtener log de notificaciones: {err}")
-        return []
-    finally:
-        cursor.close()
-        conn.close()
-        
 def get_all_events():
     """
     Consulta 4: Obtiene TODOS los eventos para un menú desplegable.
@@ -284,17 +241,16 @@ def get_all_escuelas():
         cursor.close()
         conn.close()
 
-def get_participant_report(search_term=None, filter_facultad=None, filter_escuela=None):
+# model.py
+
+def get_participant_report(search_term=None, filter_facultad=None, filter_escuela=None, 
+                           date_start=None, date_end=None, 
+                           noti_date_start=None, noti_date_end=None): # <-- NUEVOS PARÁMETROS
     """
-    Genera un reporte completo de participantes con todos los filtros.
+    MODIFICADO: Añadidos filtros de rango de fechas para la FECHA DE NOTIFICACIÓN
+    (noti_date_start y noti_date_end).
     """
     params = []
-    
-    # Esta consulta es compleja:
-    # 1. Obtiene el participante (p) y su evento (e).
-    # 2. (pe, es, f_esc) Obtiene la escuela (es) y la facultad (f_esc) a la que pertenece esa escuela.
-    # 3. (pf, f_part) Obtiene la facultad (f_part) si está asignada directamente al participante.
-    # 4. COALESCE da prioridad a la facultad de la escuela, si no, usa la facultad directa.
     
     query = """
     SELECT 
@@ -302,37 +258,63 @@ def get_participant_report(search_term=None, filter_facultad=None, filter_escuel
         p.correo, 
         p.estadoNotificado, 
         e.nombre AS nombre_evento,
+        e.fecha AS fecha_evento,
         COALESCE(f_esc.nombreFacultad, f_part.nombreFacultad) AS nombre_facultad,
-        es.nombreEscuela AS nombre_escuela
+        es.nombreEscuela AS nombre_escuela,
+        log.fecha_notificacion
     FROM Participantes p
     JOIN Eventos e ON p.fk_idEvento = e.idEvento
-    LEFT JOIN ParticipanteEscuela pe ON p.idParticipante = pe.fk_idParticipante
+    LEFT JOIN ParticipantesEscuelas pe ON p.idParticipante = pe.fk_idParticipante
     LEFT JOIN Escuelas es ON pe.fk_idEscuela = es.idEscuela
     LEFT JOIN Facultades f_esc ON es.fk_idFacultad = f_esc.idFacultad
-    LEFT JOIN ParticipanteFacultad pf ON p.idParticipante = pf.fk_idParticipante
+    LEFT JOIN ParticipantesFacultades pf ON p.idParticipante = pf.fk_idParticipante
     LEFT JOIN Facultades f_part ON pf.fk_idFacultad = f_part.idFacultad
+    LEFT JOIN (
+        SELECT correo, MAX(fecha) as fecha_notificacion 
+        FROM Log_participantesNotificados 
+        GROUP BY correo
+    ) log ON p.correo = log.correo
     """
     
     where_clauses = []
     
+    # Filtro: Nombre
     if search_term and search_term.strip():
         where_clauses.append("p.nombresCompleto LIKE %s")
         params.append(f"%{search_term.strip()}%")
         
+    # Filtro: Facultad
     if filter_facultad and filter_facultad.strip():
-        # Filtra por CUALQUIERA de las dos rutas de facultad
         where_clauses.append("(f_esc.idFacultad = %s OR f_part.idFacultad = %s)")
         params.append(filter_facultad)
         params.append(filter_facultad)
         
+    # Filtro: Escuela
     if filter_escuela and filter_escuela.strip():
         where_clauses.append("es.idEscuela = %s")
         params.append(filter_escuela)
         
+    # Filtro: Fecha de EVENTO
+    if date_start and date_start.strip():
+        where_clauses.append("e.fecha >= %s")
+        params.append(date_start)
+    if date_end and date_end.strip():
+        where_clauses.append("e.fecha <= %s")
+        params.append(date_end)
+        
+    # Nota: Estos filtros solo mostrarán participantes que SÍ han sido notificados
+    # y que caen dentro de este rango.
+    if noti_date_start and noti_date_start.strip():
+        where_clauses.append("log.fecha_notificacion >= %s")
+        params.append(noti_date_start)
+    if noti_date_end and noti_date_end.strip():
+        where_clauses.append("log.fecha_notificacion <= %s")
+        params.append(noti_date_end)
+        
     if where_clauses:
         query += " WHERE " + " AND ".join(where_clauses)
         
-    query += " ORDER BY p.nombresCompleto ASC LIMIT 500" # Límite para la vista web
+    query += " ORDER BY p.nombresCompleto ASC LIMIT 500"
     
     conn = get_db_connection()
     if not conn:

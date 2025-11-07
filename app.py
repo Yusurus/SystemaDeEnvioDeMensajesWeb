@@ -32,6 +32,9 @@ def crear_app():
 
 
     @app.route('/')
+    # app.py
+
+    @app.route('/')
     def index():
         try:
             # --- Obtener filtros y pestaña activa ---
@@ -39,28 +42,34 @@ def crear_app():
             filter_facultad = request.args.get('filter_facultad', None)
             filter_escuela = request.args.get('filter_escuela', None)
             
-            # Determinar pestaña activa
+            # Filtros Fecha Evento
+            date_start = request.args.get('date_start', None)
+            date_end = request.args.get('date_end', None)
+            
+            # NUEVOS Filtros Fecha Notificación
+            noti_date_start = request.args.get('noti_date_start', None)
+            noti_date_end = request.args.get('noti_date_end', None)
+            
             active_tab = request.args.get('tab', 'notificar')
-            if search_query or filter_facultad or filter_escuela:
+            
+            # Si se usa cualquier filtro, activa la pestaña de reporte
+            if any([search_query, filter_facultad, filter_escuela, date_start, date_end, noti_date_start, noti_date_end]):
                 active_tab = 'reporte-general'
             
             # --- Pestaña 1: Notificar ---
             status = get_notification_status()
             participants_list = model.get_unnotified_participants(status['available_this_batch'])
             
-            # --- Pestaña 2: Reporte (Log) ---
-            log_search_query = request.args.get('log_search_name', None)
-            if log_search_query:
-                active_tab = 'reporte-log'
-            notification_log = model.get_notification_log(search_term=log_search_query)
+            # --- Pestaña 2: Reporte (General) ---
+            participant_report = model.get_participant_report(
+                search_query, filter_facultad, filter_escuela, 
+                date_start, date_end, noti_date_start, noti_date_end # <-- Pasamos todos los filtros
+            )
             
-            # --- Pestaña 3: Reporte (General) ---
-            participant_report = model.get_participant_report(search_query, filter_facultad, filter_escuela)
-            
-            # --- Pestaña 4: Administrar (Cargar listas) ---
+            # --- Pestaña 3: Administrar ---
             events_list = model.get_all_events()
-            facultades_list = model.get_all_facultades() # NUEVO
-            escuelas_list = model.get_all_escuelas()     # NUEVO
+            facultades_list = model.get_all_facultades()
+            escuelas_list = model.get_all_escuelas()
             
             return render_template(
                 'index.html', 
@@ -68,14 +77,15 @@ def crear_app():
                 participants=participants_list,
                 status=status,
                 # Tab 2
-                logs=notification_log,
-                log_search_name=log_search_query or "",
-                # Tab 3
                 report_data=participant_report,
                 search_name=search_query or "",
                 current_facultad=filter_facultad,
                 current_escuela=filter_escuela,
-                # Tab 4
+                current_date_start=date_start or "",
+                current_date_end=date_end or "",
+                current_noti_date_start=noti_date_start or "", # <-- NUEVO
+                current_noti_date_end=noti_date_end or "",   # <-- NUEVO
+                # Tab 3
                 events_list=events_list,
                 facultades_list=facultades_list,
                 escuelas_list=escuelas_list,
@@ -84,8 +94,8 @@ def crear_app():
             )
         except Exception as e:
             flash(f"Error al cargar la página: {e}", 'error')
-            return render_template('index.html', participants=[], status={'count_today': 0, 'daily_limit': config.EMAIL_DAILY_LIMIT, 'remaining_today': 0}, logs=[], events_list=[], facultades_list=[], escuelas_list=[], report_data=[], search_name="", log_search_name="", active_tab="notificar")
-
+            return render_template('index.html', participants=[], status={'count_today': 0, 'daily_limit': config.EMAIL_DAILY_LIMIT, 'remaining_today': 0}, events_list=[], facultades_list=[], escuelas_list=[], report_data=[], search_name="", active_tab="notificar", current_date_start="", current_date_end="", current_noti_date_start="", current_noti_date_end="")
+    
     @app.route('/enviar-notificaciones', methods=['POST'])
     def send_notifications():
         """
@@ -179,19 +189,21 @@ def crear_app():
 
     @app.route('/export/excel')
     def export_excel():
-        """
-        Exporta el nuevo "Reporte General" con filtros.
-        """
         try:
+            # Leer TODOS los filtros de la URL
             search_query = request.args.get('search_name', '')
             filter_facultad = request.args.get('filter_facultad', None)
             filter_escuela = request.args.get('filter_escuela', None)
+            date_start = request.args.get('date_start', None)
+            date_end = request.args.get('date_end', None)
+            noti_date_start = request.args.get('noti_date_start', None) # <-- NUEVO
+            noti_date_end = request.args.get('noti_date_end', None)   # <-- NUEVO
 
-            # Obtenemos los datos (¡quitando el límite web!)
-            data = model.get_participant_report(search_query, filter_facultad, filter_escuela)
-            # ^ NOTA: get_participant_report tiene un "LIMIT 500" - deberías quitarlo
-            # o hacerlo un parámetro para una exportación completa.
-            # Por ahora, funcionará con los 500 primeros.
+            # Pasar TODOS los filtros al modelo
+            data = model.get_participant_report(
+                search_query, filter_facultad, filter_escuela, 
+                date_start, date_end, noti_date_start, noti_date_end
+            )
 
             if not data:
                 flash("No hay datos para exportar.", "info")
@@ -204,13 +216,21 @@ def crear_app():
                 'correo': 'Correo Electrónico',
                 'estadoNotificado': 'Estado',
                 'nombre_evento': 'Evento',
+                'fecha_evento': 'Fecha Evento',
                 'nombre_facultad': 'Facultad',
-                'nombre_escuela': 'Escuela'
+                'nombre_escuela': 'Escuela',
+                'fecha_notificacion': 'Fecha Notificación'
             }, inplace=True)
             
-            # Rellenar valores nulos para un reporte más limpio
+            # Formatear todas las fechas
+            if 'Fecha Evento' in df.columns:
+                df['Fecha Evento'] = pd.to_datetime(df['Fecha Evento']).dt.strftime('%Y-%m-%d')
+            if 'Fecha Notificación' in df.columns:
+                df['Fecha Notificación'] = pd.to_datetime(df['Fecha Notificación']).dt.strftime('%Y-%m-%d %H:%M:%S')
+                
             df['Facultad'] = df['Facultad'].fillna('N/A')
             df['Escuela'] = df['Escuela'].fillna('N/A')
+            df['Fecha Notificación'] = df['Fecha Notificación'].fillna('N/A')
 
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:

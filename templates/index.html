@@ -89,11 +89,11 @@
             border: 1px solid var(--color-borde);
             text-align: left;
             vertical-align: top;
+            white-space: nowrap; /* Evita que el texto se rompa */
         }
         th { background-color: var(--color-fondo); font-weight: 600; }
         tr:nth-child(even) { background-color: #fcfcfc; }
         
-        /* ... (resto de tus estilos CSS sin cambios) ... */
         button[type="submit"] {
             background-color: var(--color-exito);
             color: white;
@@ -133,6 +133,7 @@
         .warning { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
         .info { background-color: #d1ecf1; color: #0c5460; border-color: #bee5eb; }
         
+        /* --- Estilos para Formularios --- */
         .form-grid { display: flex; gap: 30px; }
         .form-column { flex: 1; min-width: 0; }
         .form-group { margin-bottom: 15px; }
@@ -162,6 +163,7 @@
         .form-group button:hover { background-color: #0069d9; }
         .form-group small { color: #555; margin-top: 5px; display: block; }
 
+        /* --- Estilos para Buscador y Exportar --- */
         .report-controls {
             display: flex;
             flex-wrap: wrap;
@@ -172,17 +174,17 @@
         }
         .search-form {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: wrap; /* Permite que los filtros pasen a la siguiente línea si no caben */
             align-items: flex-end;
             gap: 10px;
             flex-grow: 1;
         }
         .search-form .form-group {
             margin-bottom: 0;
-            flex-grow: 1;
-            min-width: 150px;
+            flex: 1; /* Todos los filtros intentan tener el mismo tamaño */
+            min-width: 150px; /* Ancho mínimo antes de saltar de línea */
         }
-        .search-form button, .export-button {
+        .export-button {
             background-color: var(--color-secundario);
             color: white;
             padding: 10px 20px;
@@ -196,7 +198,7 @@
             box-sizing: border-box;
             white-space: nowrap;
         }
-        .search-form button:hover, .export-button:hover {
+        .export-button:hover {
             background-color: #5a6268;
         }
     </style>
@@ -207,8 +209,7 @@
 
         <nav class="tab-nav">
             <button class="tab-button" onclick="openTab('notificar')">Notificar</button>
-            <button class="tab-button" onclick="openTab('reporte-log')">Reporte (Log)</button>
-            <button class="tab-button" onclick="openTab('reporte-general')">Reporte (General)</button>
+            <button class="tab-button" onclick="openTab('reporte-general')">Reporte General</button>
             <button class="tab-button" onclick="openTab('administrar')">Administrar</button>
         </nav>
 
@@ -264,61 +265,21 @@
                 {% endif %}
             </div>
 
-            <div id="reporte-log" class="tab-pane">
-                <h2>Log de Notificaciones Enviadas</h2>
-                
-                <div class="report-controls">
-                    <form action="{{ url_for('index') }}" method="GET" class="search-form">
-                        <input type="hidden" name="tab" value="reporte-log">
-                        <div class="form-group">
-                            <label for="log_search_name">Buscar por Nombre (Servidor)</label>
-                            <input type="text" id="log_search_name" name="log_search_name" value="{{ log_search_name }}">
-                        </div>
-                        <button type="submit">Buscar</button>
-                    </form>
-                </div>
-                
-                {% if logs %}
-                    <table id="tablaLog" class="display" style="width:100%">
-                        <thead> 
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Correo</th>
-                                <th>Fecha y Hora de Notificación</th>
-                            </tr> 
-                        </thead>
-                        <tbody>
-                            {% for log in logs %}
-                            <tr> 
-                                <td>{{ log.nombre }}</td> 
-                                <td>{{ log.correo }}</td> 
-                                <td>{{ log.fecha.strftime('%Y-%m-%d %H:%M:%S') }}</td> 
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% else %}
-                    {% if log_search_name %}
-                    <p class="empty">No se encontraron resultados para "{{ log_search_name }}".</p>
-                    {% else %}
-                    <p class="empty">Aún no se ha enviado ninguna notificación.</p>
-                    {% endif %}
-                {% endif %}
-            </div>
-
             <div id="reporte-general" class="tab-pane">
                 <h2>Reporte General de Participantes</h2>
                 
                 <div class="report-controls">
                     <form action="{{ url_for('index') }}" method="GET" class="search-form">
                         <input type="hidden" name="tab" value="reporte-general">
+                        
                         <div class="form-group">
                             <label for="search_name">Buscar por Nombre</label>
-                            <input type="text" id="search_name" name="search_name" value="{{ search_name }}">
+                            <input type="text" id="search_name" name="search_name" value="{{ search_name }}" onchange="this.form.submit()">
                         </div>
+                        
                         <div class="form-group">
-                            <label for="filter_facultad">Filtrar por Facultad</label>
-                            <select id="filter_facultad" name="filter_facultad">
+                            <label for="filter_facultad">Facultad</label>
+                            <select id="filter_facultad" name="filter_facultad" onchange="this.form.submit()">
                                 <option value="">-- Todas --</option>
                                 {% for f in facultades_list %}
                                 <option value="{{ f.idFacultad }}" {% if f.idFacultad|string == current_facultad %}selected{% endif %}>
@@ -327,9 +288,10 @@
                                 {% endfor %}
                             </select>
                         </div>
+                        
                         <div class="form-group">
-                            <label for="filter_escuela">Filtrar por Escuela</label>
-                            <select id="filter_escuela" name="filter_escuela">
+                            <label for="filter_escuela">Escuela</label>
+                            <select id="filter_escuela" name="filter_escuela" onchange="this.form.submit()">
                                 <option value="">-- Todas --</option>
                                 {% for es in escuelas_list %}
                                 <option value="{{ es.idEscuela }}" {% if es.idEscuela|string == current_escuela %}selected{% endif %}>
@@ -338,38 +300,68 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <button type="submit">Filtrar</button>
+                        
+                        <div class="form-group">
+                            <label for="date_start">Evento (Desde)</label>
+                            <input type="date" id="date_start" name="date_start" value="{{ current_date_start }}" onchange="this.form.submit()">
+                        </div>
+                        <div class="form-group">
+                            <label for="date_end">Evento (Hasta)</label>
+                            <input type="date" id="date_end" name="date_end" value="{{ current_date_end }}" onchange="this.form.submit()">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="noti_date_start">Notif. (Desde)</label>
+                            <input type="date" id="noti_date_start" name="noti_date_start" value="{{ current_noti_date_start }}" onchange="this.form.submit()">
+                        </div>
+                        <div class="form-group">
+                            <label for="noti_date_end">Notif. (Hasta)</label>
+                            <input type="date" id="noti_date_end" name="noti_date_end" value="{{ current_noti_date_end }}" onchange="this.form.submit()">
+                        </div>
                     </form>
-                    <a href="{{ url_for('export_excel', search_name=search_name, filter_facultad=current_facultad, filter_escuela=current_escuela) }}" class="export-button">
+                    
+                    <a href="{{ url_for('export_excel', search_name=search_name, filter_facultad=current_facultad, filter_escuela=current_escuela, date_start=current_date_start, date_end=current_date_end, noti_date_start=current_noti_date_start, noti_date_end=current_noti_date_end) }}" class="export-button">
                         Exportar a Excel
                     </a>
                 </div>
 
                 {% if report_data %}
-                    <table id="tablaReporteGeneral" class="display" style="width:100%">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Correo</th>
-                                <th>Estado</th>
-                                <th>Evento</th>
-                                <th>Facultad</th>
-                                <th>Escuela</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for r in report_data %}
-                            <tr>
-                                <td>{{ r.nombresCompleto }}</td>
-                                <td>{{ r.correo }}</td>
-                                <td>{{ r.estadoNotificado | capitalize }}</td>
-                                <td>{{ r.nombre_evento }}</td>
-                                <td>{{ r.nombre_facultad or 'N/A' }}</td>
-                                <td>{{ r.nombre_escuela or 'N/A' }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                    <div style="overflow-x: auto;">
+                        <table id="tablaReporteGeneral" class="display" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Correo</th>
+                                    <th>Estado</th>
+                                    <th>Evento</th>
+                                    <th>Fecha Evento</th>
+                                    <th>Facultad</th>
+                                    <th>Escuela</th>
+                                    <th>Fecha Notificación</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in report_data %}
+                                <tr>
+                                    <td>{{ r.nombresCompleto }}</td>
+                                    <td>{{ r.correo }}</td>
+                                    <td>{{ r.estadoNotificado | capitalize }}</td>
+                                    <td>{{ r.nombre_evento }}</td>
+                                    <td>{{ r.fecha_evento.strftime('%Y-%m-%d') if r.fecha_evento else 'N/A' }}</td>
+                                    <td>{{ r.nombre_facultad or 'N/A' }}</td>
+                                    <td>{{ r.nombre_escuela or 'N/A' }}</td>
+                                    <td>
+                                        {% if r.fecha_notificacion %}
+                                            {{ r.fecha_notificacion.strftime('%Y-%m-%d %H:%M:%S') }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 {% else %}
                     <p class="empty">No se encontraron participantes con esos filtros.</p>
                 {% endif %}
@@ -386,7 +378,6 @@
                             <div class="form-group"> <button type="submit">Guardar Evento</button> </div>
                         </form>
                     </div>
-                    
                     <div class="form-column">
                         <h3>Agregar Nuevo Participante</h3>
                         <form action="{{ url_for('add_participant') }}" method="POST">
@@ -420,9 +411,7 @@
                         </form>
                     </div>
                 </div>
-
                 <hr style="margin: 40px 0;">
-
                 <div>
                     <h3>Importar Participantes desde Excel</h3>
                     <form action="{{ url_for('upload_excel') }}" method="POST" enctype="multipart/form-data" style="max-width: 600px;">
@@ -469,15 +458,11 @@
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 
     <script>
-        // Pasa la lista de escuelas a JS
         const allEscuelas = {{ escuelas_list | tojson }};
-
-        // Almacén para las tablas
         var dataTables = {};
 
         function updateEscuelas(selectedFacultadId, targetEscuelaDropdownId) {
             const escuelaDropdown = document.getElementById(targetEscuelaDropdownId);
-            
             escuelaDropdown.innerHTML = '';
             
             const defaultOption = document.createElement('option');
@@ -527,43 +512,31 @@
                 }
             }
 
-            // --- NUEVA LÍNEA ---
-            // Ajusta las columnas de la tabla cuando la pestaña se muestra
-            // Esto es necesario porque la tabla estaba oculta
+            // MODIFICADO: Ajuste de columnas limpiado
             if (tabName === 'notificar' && dataTables.notificar) {
                 dataTables.notificar.columns.adjust();
             }
-            if (tabName === 'reporte-log' && dataTables.reporteLog) {
-                dataTables.reporteLog.columns.adjust();
-            }
             if (tabName === 'reporte-general' && dataTables.reporteGeneral) {
-                dataTables.reporteGeneral.columns.adjust();
+                // Ajusta las columnas Y el scroll
+                dataTables.reporteGeneral.columns.adjust().draw(); 
             }
         }
 
-        // Esperar a que el documento esté listo (jQuery)
         $(document).ready(function() {
-            
-            // Configuración de idioma español para DataTables
-            const spanishLang = {
-                "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
-            };
+            const spanishLang = { "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json" };
 
-            // Inicializar las 3 tablas y guardarlas
+            // Tabla Notificar: Sigue siendo responsiva (pocas columnas)
             dataTables.notificar = $('#tablaNotificar').DataTable({ 
-                language: spanishLang,
-                responsive: true
+                language: spanishLang, 
+                responsive: true 
             });
-            dataTables.reporteLog = $('#tablaLog').DataTable({ 
-                language: spanishLang,
-                responsive: true
-            });
+            
+            // Tabla General: Ahora usa scroll horizontal
             dataTables.reporteGeneral = $('#tablaReporteGeneral').DataTable({ 
-                language: spanishLang,
-                responsive: true
+                language: spanishLang, 
+                scrollX: true  // <-- CAMBIO: Habilita el scroll horizontal
             });
 
-            // Abre la pestaña que Flask nos dijo (basado en la URL)
             openTab('{{ active_tab | default('notificar') }}');
         });
     </script>
