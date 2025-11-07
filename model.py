@@ -390,3 +390,61 @@ def get_all_escuelas_map():
     finally:
         cursor.close()
         conn.close()
+        
+def get_event_summary_view():
+    """
+    Obtiene el resumen de eventos con conteo de participantes.
+    """
+    # Usamos LEFT JOIN para incluir eventos que tengan 0 participantes
+    query = """
+    SELECT 
+        e.nombre AS nombre_evento,
+        e.fecha,
+        COUNT(p.idParticipante) AS numero_participantes
+    FROM Eventos e
+    LEFT JOIN Participantes p ON e.idEvento = p.fk_idEvento
+    GROUP BY e.idEvento, e.nombre, e.fecha
+    ORDER BY e.fecha DESC
+    """
+    conn = get_db_connection()
+    if not conn:
+        return []
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(query)
+        return cursor.fetchall()
+    except mysql.connector.Error as err:
+        print(f"Error al obtener resumen de eventos: {err}")
+        return []
+    finally:
+        cursor.close()
+        conn.close()
+
+def get_all_participants_view():
+    """
+    Obtiene la lista completa de participantes con su evento.
+    """
+    query = """
+    SELECT 
+        p.nombresCompleto,
+        p.correo,
+        e.nombre AS nombre_evento
+    FROM Participantes p
+    JOIN Eventos e ON p.fk_idEvento = e.idEvento
+    ORDER BY p.nombresCompleto ASC
+    """
+    conn = get_db_connection()
+    if not conn:
+        return []
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(query)
+        return cursor.fetchall()
+    except mysql.connector.Error as err:
+        print(f"Error al obtener todos los participantes: {err}")
+        return []
+    finally:
+        cursor.close()
+        conn.close()

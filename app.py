@@ -41,18 +41,13 @@ def crear_app():
             search_query = request.args.get('search_name', None)
             filter_facultad = request.args.get('filter_facultad', None)
             filter_escuela = request.args.get('filter_escuela', None)
-            
-            # Filtros Fecha Evento
             date_start = request.args.get('date_start', None)
             date_end = request.args.get('date_end', None)
-            
-            # NUEVOS Filtros Fecha Notificación
             noti_date_start = request.args.get('noti_date_start', None)
             noti_date_end = request.args.get('noti_date_end', None)
             
             active_tab = request.args.get('tab', 'notificar')
             
-            # Si se usa cualquier filtro, activa la pestaña de reporte
             if any([search_query, filter_facultad, filter_escuela, date_start, date_end, noti_date_start, noti_date_end]):
                 active_tab = 'reporte-general'
             
@@ -63,10 +58,14 @@ def crear_app():
             # --- Pestaña 2: Reporte (General) ---
             participant_report = model.get_participant_report(
                 search_query, filter_facultad, filter_escuela, 
-                date_start, date_end, noti_date_start, noti_date_end # <-- Pasamos todos los filtros
+                date_start, date_end, noti_date_start, noti_date_end
             )
             
-            # --- Pestaña 3: Administrar ---
+            # --- Pestaña 3: Vistas (NUEVO) ---
+            event_summary_data = model.get_event_summary_view()
+            all_participants_data = model.get_all_participants_view()
+
+            # --- Pestaña 4: Administrar ---
             events_list = model.get_all_events()
             facultades_list = model.get_all_facultades()
             escuelas_list = model.get_all_escuelas()
@@ -83,9 +82,12 @@ def crear_app():
                 current_escuela=filter_escuela,
                 current_date_start=date_start or "",
                 current_date_end=date_end or "",
-                current_noti_date_start=noti_date_start or "", # <-- NUEVO
-                current_noti_date_end=noti_date_end or "",   # <-- NUEVO
-                # Tab 3
+                current_noti_date_start=noti_date_start or "",
+                current_noti_date_end=noti_date_end or "",
+                # Tab 3 (NUEVO)
+                event_summary=event_summary_data,
+                all_participants=all_participants_data,
+                # Tab 4
                 events_list=events_list,
                 facultades_list=facultades_list,
                 escuelas_list=escuelas_list,
@@ -94,7 +96,8 @@ def crear_app():
             )
         except Exception as e:
             flash(f"Error al cargar la página: {e}", 'error')
-            return render_template('index.html', participants=[], status={'count_today': 0, 'daily_limit': config.EMAIL_DAILY_LIMIT, 'remaining_today': 0}, events_list=[], facultades_list=[], escuelas_list=[], report_data=[], search_name="", active_tab="notificar", current_date_start="", current_date_end="", current_noti_date_start="", current_noti_date_end="")
+            # ... (se añaden los nuevos valores por defecto al render de error) ...
+            return render_template('index.html', participants=[], status={'count_today': 0, 'daily_limit': config.EMAIL_DAILY_LIMIT, 'remaining_today': 0}, events_list=[], facultades_list=[], escuelas_list=[], report_data=[], search_name="", active_tab="notificar", current_date_start="", current_date_end="", current_noti_date_start="", current_noti_date_end="", event_summary=[], all_participants=[])
     
     @app.route('/enviar-notificaciones', methods=['POST'])
     def send_notifications():
@@ -187,66 +190,129 @@ def crear_app():
 
         return redirect(url_for('index', tab='administrar'))
 
-    @app.route('/export/excel')
-    def export_excel():
+    @app.route('/export/reporte-general') # <-- CAMBIO DE NOMBRE
+    def export_reporte_general(): # <-- CAMBIO DE NOMBRE
+        """
+        Exporta el Reporte General con todos sus filtros.
+        """
         try:
-            # Leer TODOS los filtros de la URL
+            # ... (leer todos los filtros de la URL) ...
             search_query = request.args.get('search_name', '')
             filter_facultad = request.args.get('filter_facultad', None)
             filter_escuela = request.args.get('filter_escuela', None)
             date_start = request.args.get('date_start', None)
             date_end = request.args.get('date_end', None)
-            noti_date_start = request.args.get('noti_date_start', None) # <-- NUEVO
-            noti_date_end = request.args.get('noti_date_end', None)   # <-- NUEVO
+            noti_date_start = request.args.get('noti_date_start', None)
+            noti_date_end = request.args.get('noti_date_end', None)
 
-            # Pasar TODOS los filtros al modelo
             data = model.get_participant_report(
                 search_query, filter_facultad, filter_escuela, 
                 date_start, date_end, noti_date_start, noti_date_end
             )
-
             if not data:
                 flash("No hay datos para exportar.", "info")
                 return redirect(url_for('index', tab='reporte-general'))
 
             df = pd.DataFrame(data)
-            
+            # ... (renombrar columnas) ...
             df.rename(columns={
-                'nombresCompleto': 'Nombre Completo',
-                'correo': 'Correo Electrónico',
-                'estadoNotificado': 'Estado',
-                'nombre_evento': 'Evento',
-                'fecha_evento': 'Fecha Evento',
-                'nombre_facultad': 'Facultad',
-                'nombre_escuela': 'Escuela',
-                'fecha_notificacion': 'Fecha Notificación'
+                'nombresCompleto': 'Nombre Completo', 'correo': 'Correo Electrónico',
+                'estadoNotificado': 'Estado', 'nombre_evento': 'Evento',
+                'fecha_evento': 'Fecha Evento', 'nombre_facultad': 'Facultad',
+                'nombre_escuela': 'Escuela', 'fecha_notificacion': 'Fecha Notificación'
             }, inplace=True)
-            
-            # Formatear todas las fechas
+            # ... (formatear fechas y N/A) ...
             if 'Fecha Evento' in df.columns:
                 df['Fecha Evento'] = pd.to_datetime(df['Fecha Evento']).dt.strftime('%Y-%m-%d')
             if 'Fecha Notificación' in df.columns:
                 df['Fecha Notificación'] = pd.to_datetime(df['Fecha Notificación']).dt.strftime('%Y-%m-%d %H:%M:%S')
-                
             df['Facultad'] = df['Facultad'].fillna('N/A')
             df['Escuela'] = df['Escuela'].fillna('N/A')
             df['Fecha Notificación'] = df['Fecha Notificación'].fillna('N/A')
 
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name='Reporte_Participantes')
+                df.to_excel(writer, index=False, sheet_name='Reporte_General')
             output.seek(0)
 
             return send_file(
                 output,
                 mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 as_attachment=True,
-                download_name='reporte_participantes.xlsx'
+                download_name='reporte_general_participantes.xlsx'
             )
-
         except Exception as e:
             flash(f"Error al exportar a Excel: {e}", "warning")
             return redirect(url_for('index', tab='reporte-general'))
+        
+    @app.route('/export/eventos') # <-- NUEVA RUTA
+    def export_excel_eventos():
+        """
+        Exporta la vista de Resumen de Eventos.
+        """
+        try:
+            data = model.get_event_summary_view()
+            if not data:
+                flash("No hay datos de eventos para exportar.", "info")
+                return redirect(url_for('index', tab='vistas'))
+
+            df = pd.DataFrame(data)
+            df.rename(columns={
+                'nombre_evento': 'Nombre del Evento',
+                'fecha': 'Fecha',
+                'numero_participantes': 'Nro. de Participantes'
+            }, inplace=True)
+            
+            df['Fecha'] = pd.to_datetime(df['Fecha']).dt.strftime('%Y-%m-%d')
+
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Resumen_Eventos')
+            output.seek(0)
+            
+            return send_file(
+                output,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                as_attachment=True,
+                download_name='resumen_eventos.xlsx'
+            )
+        except Exception as e:
+            flash(f"Error al exportar eventos: {e}", "warning")
+            return redirect(url_for('index', tab='vistas'))
+
+
+    @app.route('/export/participantes') # <-- NUEVA RUTA
+    def export_excel_participantes():
+        """
+        Exporta la vista de Todos los Participantes.
+        """
+        try:
+            data = model.get_all_participants_view()
+            if not data:
+                flash("No hay datos de participantes para exportar.", "info")
+                return redirect(url_for('index', tab='vistas'))
+
+            df = pd.DataFrame(data)
+            df.rename(columns={
+                'nombresCompleto': 'Nombres Completos',
+                'correo': 'Correo Electrónico',
+                'nombre_evento': 'Evento'
+            }, inplace=True)
+
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Total_Participantes')
+            output.seek(0)
+            
+            return send_file(
+                output,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                as_attachment=True,
+                download_name='total_participantes.xlsx'
+            )
+        except Exception as e:
+            flash(f"Error al exportar participantes: {e}", "warning")
+            return redirect(url_for('index', tab='vistas'))
     
     @app.route('/upload-excel', methods=['POST'])
     def upload_excel():
