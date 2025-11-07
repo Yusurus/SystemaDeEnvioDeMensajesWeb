@@ -500,22 +500,7 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="facultad_id_excel">2. Facultad para TODOS (Opcional)</label>
-                            <select id="facultad_id_excel" name="facultad_id" onchange="updateEscuelas(this.value, 'escuela_id_excel')">
-                                <option value="">-- Ninguna --</option>
-                                {% for f in facultades_list %}
-                                <option value="{{ f.idFacultad }}">{{ f.nombreFacultad }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="escuela_id_excel">3. Escuela para TODOS (Opcional)</label>
-                            <select id="escuela_id_excel" name="escuela_id" disabled>
-                                <option value="">-- Ninguna --</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="excel_file">4. Selecciona el archivo Excel (.xlsx)</label>
+                            <label for="excel_file">2. Selecciona el archivo Excel (.xlsx)</label>
                             <input type="file" id="excel_file" name="excel_file" accept=".xlsx" required>
                             <small>El Excel debe tener solo dos columnas: <strong>NombresCompletos</strong> y <strong>CorreoElectronico</strong></small>
                         </div>
