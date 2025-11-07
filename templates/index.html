@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Notificaciones</title>
+    
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    
     <style>
         /* --- (Todos tus estilos CSS anteriores van aquí) --- */
         :root {
@@ -74,7 +77,8 @@
         .tab-content { padding: 25px; }
         .tab-pane { display: none; }
         .tab-pane.active { display: block; }
-        /* --- Estilos de Componentes --- */
+
+        /* --- Estilos de Componentes (sin cambios) --- */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -89,6 +93,7 @@
         th { background-color: var(--color-fondo); font-weight: 600; }
         tr:nth-child(even) { background-color: #fcfcfc; }
         
+        /* ... (resto de tus estilos CSS sin cambios) ... */
         button[type="submit"] {
             background-color: var(--color-exito);
             color: white;
@@ -128,7 +133,6 @@
         .warning { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
         .info { background-color: #d1ecf1; color: #0c5460; border-color: #bee5eb; }
         
-        /* --- Estilos para Formularios --- */
         .form-grid { display: flex; gap: 30px; }
         .form-column { flex: 1; min-width: 0; }
         .form-group { margin-bottom: 15px; }
@@ -147,6 +151,10 @@
             box-sizing: border-box;
             font-size: 16px;
         }
+        .form-group select:disabled {
+            background-color: var(--color-fondo);
+            cursor: not-allowed;
+        }
         .form-group button {
             background-color: var(--color-primario);
             margin-top: 10px;
@@ -154,7 +162,6 @@
         .form-group button:hover { background-color: #0069d9; }
         .form-group small { color: #555; margin-top: 5px; display: block; }
 
-        /* --- Estilos para Buscador y Exportar --- */
         .report-controls {
             display: flex;
             flex-wrap: wrap;
@@ -225,15 +232,27 @@
                     (Límite por lote: {{ config.EMAIL_BATCH_LIMIT }})
                 </div>
                 {% endif %}
+                
                 {% if participants %}
                     <form action="{{ url_for('send_notifications') }}" method="POST">
                         <button type="submit">Notificar Siguiente Lote ({{ participants|length }})</button>
                     </form>
-                    <table>
-                        <thead> <tr><th>Nombre Completo</th><th>Correo</th><th>Evento</th></tr> </thead>
+                    
+                    <table id="tablaNotificar" class="display" style="width:100%">
+                        <thead> 
+                            <tr>
+                                <th>Nombre Completo</th>
+                                <th>Correo</th>
+                                <th>Evento</th>
+                            </tr>
+                        </thead>
                         <tbody>
                             {% for p in participants %}
-                            <tr> <td>{{ p.nombresCompleto }}</td> <td>{{ p.correo }}</td> <td>{{ p.nombre_evento }}</td> </tr>
+                            <tr> 
+                                <td>{{ p.nombresCompleto }}</td> 
+                                <td>{{ p.correo }}</td> 
+                                <td>{{ p.nombre_evento }}</td> 
+                            </tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -247,22 +266,34 @@
 
             <div id="reporte-log" class="tab-pane">
                 <h2>Log de Notificaciones Enviadas</h2>
+                
                 <div class="report-controls">
                     <form action="{{ url_for('index') }}" method="GET" class="search-form">
                         <input type="hidden" name="tab" value="reporte-log">
                         <div class="form-group">
-                            <label for="log_search_name">Buscar por Nombre</label>
+                            <label for="log_search_name">Buscar por Nombre (Servidor)</label>
                             <input type="text" id="log_search_name" name="log_search_name" value="{{ log_search_name }}">
                         </div>
                         <button type="submit">Buscar</button>
                     </form>
                 </div>
+                
                 {% if logs %}
-                    <table>
-                        <thead> <tr><th>Nombre</th><th>Correo</th><th>Fecha y Hora de Notificación</th></tr> </thead>
+                    <table id="tablaLog" class="display" style="width:100%">
+                        <thead> 
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Correo</th>
+                                <th>Fecha y Hora de Notificación</th>
+                            </tr> 
+                        </thead>
                         <tbody>
                             {% for log in logs %}
-                            <tr> <td>{{ log.nombre }}</td> <td>{{ log.correo }}</td> <td>{{ log.fecha.strftime('%Y-%m-%d %H:%M:%S') }}</td> </tr>
+                            <tr> 
+                                <td>{{ log.nombre }}</td> 
+                                <td>{{ log.correo }}</td> 
+                                <td>{{ log.fecha.strftime('%Y-%m-%d %H:%M:%S') }}</td> 
+                            </tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -309,14 +340,13 @@
                         </div>
                         <button type="submit">Filtrar</button>
                     </form>
-                    
                     <a href="{{ url_for('export_excel', search_name=search_name, filter_facultad=current_facultad, filter_escuela=current_escuela) }}" class="export-button">
                         Exportar a Excel
                     </a>
                 </div>
 
                 {% if report_data %}
-                    <table>
+                    <table id="tablaReporteGeneral" class="display" style="width:100%">
                         <thead>
                             <tr>
                                 <th>Nombre</th>
@@ -356,6 +386,7 @@
                             <div class="form-group"> <button type="submit">Guardar Evento</button> </div>
                         </form>
                     </div>
+                    
                     <div class="form-column">
                         <h3>Agregar Nuevo Participante</h3>
                         <form action="{{ url_for('add_participant') }}" method="POST">
@@ -372,7 +403,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="facultad_id">Asignar a Facultad (Opcional)</label>
-                                <select id="facultad_id" name="facultad_id">
+                                <select id="facultad_id" name="facultad_id" onchange="updateEscuelas(this.value, 'escuela_id')">
                                     <option value="">-- Ninguna --</option>
                                     {% for f in facultades_list %}
                                     <option value="{{ f.idFacultad }}">{{ f.nombreFacultad }}</option>
@@ -381,11 +412,8 @@
                             </div>
                             <div class="form-group">
                                 <label for="escuela_id">Asignar a Escuela (Opcional)</label>
-                                <select id="escuela_id" name="escuela_id">
+                                <select id="escuela_id" name="escuela_id" disabled>
                                     <option value="">-- Ninguna --</option>
-                                    {% for es in escuelas_list %}
-                                    <option value="{{ es.idEscuela }}">{{ es.nombreEscuela }}</option>
-                                    {% endfor %}
                                 </select>
                             </div>
                             <div class="form-group"> <button type="submit">Guardar Participante</button> </div>
@@ -409,7 +437,7 @@
                         </div>
                         <div class="form-group">
                             <label for="facultad_id_excel">2. Facultad para TODOS (Opcional)</label>
-                            <select id="facultad_id_excel" name="facultad_id">
+                            <select id="facultad_id_excel" name="facultad_id" onchange="updateEscuelas(this.value, 'escuela_id_excel')">
                                 <option value="">-- Ninguna --</option>
                                 {% for f in facultades_list %}
                                 <option value="{{ f.idFacultad }}">{{ f.nombreFacultad }}</option>
@@ -418,11 +446,8 @@
                         </div>
                         <div class="form-group">
                             <label for="escuela_id_excel">3. Escuela para TODOS (Opcional)</label>
-                            <select id="escuela_id_excel" name="escuela_id">
+                            <select id="escuela_id_excel" name="escuela_id" disabled>
                                 <option value="">-- Ninguna --</option>
-                                {% for es in escuelas_list %}
-                                <option value="{{ es.idEscuela }}">{{ es.nombreEscuela }}</option>
-                                {% endfor %}
                             </select>
                         </div>
                         <div class="form-group">
@@ -440,38 +465,104 @@
         </div>
     </div>
 
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
     <script>
+        // Pasa la lista de escuelas a JS
+        const allEscuelas = {{ escuelas_list | tojson }};
+
+        // Almacén para las tablas
+        var dataTables = {};
+
+        function updateEscuelas(selectedFacultadId, targetEscuelaDropdownId) {
+            const escuelaDropdown = document.getElementById(targetEscuelaDropdownId);
+            
+            escuelaDropdown.innerHTML = '';
+            
+            const defaultOption = document.createElement('option');
+            defaultOption.value = "";
+            defaultOption.textContent = "-- Ninguna --";
+            escuelaDropdown.appendChild(defaultOption);
+
+            if (!selectedFacultadId || selectedFacultadId === "") {
+                escuelaDropdown.disabled = true;
+                return;
+            }
+
+            allEscuelas.forEach(escuela => {
+                if (escuela.fk_idFacultad.toString() === selectedFacultadId) {
+                    const option = document.createElement('option');
+                    option.value = escuela.idEscuela;
+                    option.textContent = escuela.nombreEscuela;
+                    escuelaDropdown.appendChild(option);
+                }
+            });
+
+            escuelaDropdown.disabled = false;
+        }
+
         function openTab(tabName) {
             var i, tabcontent, tabbuttons;
             
-            // Ocultar todos los contenidos de las pestañas
             tabcontent = document.getElementsByClassName("tab-pane");
             for (i = 0; i < tabcontent.length; i++) {
                 tabcontent[i].style.display = "none";
             }
 
-            // Quitar la clase "active" de todos los botones
             tabbuttons = document.getElementsByClassName("tab-button");
             for (i = 0; i < tabbuttons.length; i++) {
                 tabbuttons[i].classList.remove("active");
             }
 
-            // Mostrar la pestaña actual
             var tabToShow = document.getElementById(tabName);
             if(tabToShow) {
                 tabToShow.style.display = "block";
             }
 
-            // Añadir la clase "active" al botón que abrió la pestaña
             var buttons = document.getElementsByClassName("tab-button");
             for (i = 0; i < buttons.length; i++) {
                 if (buttons[i].getAttribute("onclick") === "openTab('" + tabName + "')") {
                     buttons[i].classList.add("active");
                 }
             }
+
+            // --- NUEVA LÍNEA ---
+            // Ajusta las columnas de la tabla cuando la pestaña se muestra
+            // Esto es necesario porque la tabla estaba oculta
+            if (tabName === 'notificar' && dataTables.notificar) {
+                dataTables.notificar.columns.adjust();
+            }
+            if (tabName === 'reporte-log' && dataTables.reporteLog) {
+                dataTables.reporteLog.columns.adjust();
+            }
+            if (tabName === 'reporte-general' && dataTables.reporteGeneral) {
+                dataTables.reporteGeneral.columns.adjust();
+            }
         }
 
-        document.addEventListener("DOMContentLoaded", function() {
+        // Esperar a que el documento esté listo (jQuery)
+        $(document).ready(function() {
+            
+            // Configuración de idioma español para DataTables
+            const spanishLang = {
+                "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+            };
+
+            // Inicializar las 3 tablas y guardarlas
+            dataTables.notificar = $('#tablaNotificar').DataTable({ 
+                language: spanishLang,
+                responsive: true
+            });
+            dataTables.reporteLog = $('#tablaLog').DataTable({ 
+                language: spanishLang,
+                responsive: true
+            });
+            dataTables.reporteGeneral = $('#tablaReporteGeneral').DataTable({ 
+                language: spanishLang,
+                responsive: true
+            });
+
             // Abre la pestaña que Flask nos dijo (basado en la URL)
             openTab('{{ active_tab | default('notificar') }}');
         });

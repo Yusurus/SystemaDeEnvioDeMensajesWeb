@@ -115,7 +115,7 @@ def crear_app():
         # 3. Iteramos sobre la lista (que ya está limitada a 50 o menos)
         for p in participants:
             if email_service.send_notification_email(p):
-                if model.update_participant_status(p['idPerticipante']):
+                if model.update_participant_status(p['idParticipante']):
                     success_count += 1
                 else:
                     fail_count += 1

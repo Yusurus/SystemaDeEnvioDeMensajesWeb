@@ -23,12 +23,12 @@ def get_db_connection():
 
 def get_24h_rolling_sent_count():
     """
-    Consulta 2 (CORREGIDA): Cuenta cuántos participantes fueron notificados
+    Cuenta cuántos participantes fueron notificados
     en las ÚLTIMAS 24 HORAS exactas (ventana continua).
     """
     query = """
-    SELECT COUNT(idLog_perticipanteNotificado) AS total_24h
-    FROM Log_perticipantesNotificados
+    SELECT COUNT(idLog_participanteNotificado) AS total_24h
+    FROM Log_participantesNotificados
     WHERE fecha > (NOW() - INTERVAL 24 HOUR);
     """
     conn = get_db_connection()
@@ -52,7 +52,7 @@ def get_24h_rolling_sent_count():
 
 def get_unnotified_participants(limit_amount):
     """
-    Consulta 1: Obtiene un LOTE de participantes no notificados,
+    Obtiene un LOTE de participantes no notificados,
     usando un límite dinámico.
     """
     if limit_amount <= 0:
@@ -60,12 +60,12 @@ def get_unnotified_participants(limit_amount):
         
     query = """
     SELECT 
-        p.idPerticipante, 
+        p.idParticipante, 
         p.nombresCompleto, 
         p.correo, 
         e.nombre AS nombre_evento
     FROM 
-        Perticipantes p
+        Participantes p
     JOIN 
         Eventos e ON p.fk_idEvento = e.idEvento
     WHERE 
@@ -93,7 +93,7 @@ def update_participant_status(participant_id):
     Consulta 2: Actualiza el estado de un participante a 'si'.
     Esto debería disparar tu Trigger existente para llenar la tabla Log.
     """
-    query = "UPDATE Perticipantes SET estadoNotificado = 'si' WHERE idPerticipante = %s"
+    query = "UPDATE Participantes SET estadoNotificado = 'si' WHERE idParticipante = %s"
     
     conn = get_db_connection()
     if not conn:
@@ -114,7 +114,7 @@ def update_participant_status(participant_id):
         
 def get_notification_log(search_term=None, limit_amount=200):
     """
-    Consulta 3 (Actualizada): Obtiene el Log de notificaciones,
+    Obtiene el Log de notificaciones,
     con filtrado de búsqueda opcional.
     """
     params = []
@@ -122,7 +122,7 @@ def get_notification_log(search_term=None, limit_amount=200):
     # Construcción dinámica de la consulta
     query_parts = [
         "SELECT nombre, correo, fecha",
-        "FROM Log_perticipantesNotificados"
+        "FROM Log_participantesNotificados"
     ]
     
     # Si hay un término de búsqueda, añadimos un WHERE
@@ -214,7 +214,7 @@ def add_new_participant(nombres, correo, id_evento, id_facultad=None, id_escuela
         
         # 1. Insertar el participante principal
         query_part = """
-        INSERT INTO Perticipantes (nombresCompleto, correo, estadoNotificado, fk_idEvento) 
+        INSERT INTO Participantes (nombresCompleto, correo, estadoNotificado, fk_idEvento) 
         VALUES (%s, %s, 'no', %s)
         """
         cursor.execute(query_part, (nombres, correo, id_evento))
@@ -266,16 +266,17 @@ def get_all_facultades():
 
 def get_all_escuelas():
     """
-    Obtiene todas las escuelas para los menús desplegables.
+    Ahora también obtiene el fk_idFacultad
+    para usarlo en el JavaScript de los menús dependientes.
     """
-    query = "SELECT idEscuela, nombreEscuela FROM Escuelas ORDER BY nombreEscuela ASC"
+    query = "SELECT idEscuela, nombreEscuela, fk_idFacultad FROM Escuelas ORDER BY nombreEscuela ASC"
     conn = get_db_connection()
     if not conn:
         return []
     cursor = conn.cursor(dictionary=True)
     try:
         cursor.execute(query)
-        return cursor.fetchall()
+        return cursor.fetchall()  # Ahora incluirá fk_idFacultad
     except mysql.connector.Error as err:
         print(f"Error al obtener escuelas: {err}")
         return []
@@ -303,12 +304,12 @@ def get_participant_report(search_term=None, filter_facultad=None, filter_escuel
         e.nombre AS nombre_evento,
         COALESCE(f_esc.nombreFacultad, f_part.nombreFacultad) AS nombre_facultad,
         es.nombreEscuela AS nombre_escuela
-    FROM Perticipantes p
+    FROM Participantes p
     JOIN Eventos e ON p.fk_idEvento = e.idEvento
-    LEFT JOIN ParticipanteEscuela pe ON p.idPerticipante = pe.fk_idParticipante
+    LEFT JOIN ParticipanteEscuela pe ON p.idParticipante = pe.fk_idParticipante
     LEFT JOIN Escuelas es ON pe.fk_idEscuela = es.idEscuela
     LEFT JOIN Facultades f_esc ON es.fk_idFacultad = f_esc.idFacultad
-    LEFT JOIN ParticipanteFacultad pf ON p.idPerticipante = pf.fk_idParticipante
+    LEFT JOIN ParticipanteFacultad pf ON p.idParticipante = pf.fk_idParticipante
     LEFT JOIN Facultades f_part ON pf.fk_idFacultad = f_part.idFacultad
     """
     
