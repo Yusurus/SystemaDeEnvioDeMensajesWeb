@@ -1,4 +1,3 @@
-# model.py
 import mysql.connector
 import config
 
@@ -181,12 +180,12 @@ def add_new_participant(nombres, correo, id_evento, id_facultad=None, id_escuela
         
         # 3. Si se proporcionó id_facultad, insertarlo
         if id_facultad:
-            query_fac = "INSERT INTO ParticipanteFacultad (fk_idFacultad, fk_idParticipante) VALUES (%s, %s)"
+            query_fac = "INSERT INTO ParticipantesFacultades (fk_idFacultad, fk_idParticipante) VALUES (%s, %s)"
             cursor.execute(query_fac, (id_facultad, id_nuevo_participante))
             
         # 4. Si se proporcionó id_escuela, insertarlo
         if id_escuela:
-            query_esc = "INSERT INTO ParticipanteEscuela (fk_idEscuela, fk_idParticipante) VALUES (%s, %s)"
+            query_esc = "INSERT INTO ParticipantesEscuelas (fk_idEscuela, fk_idParticipante) VALUES (%s, %s)"
             cursor.execute(query_esc, (id_escuela, id_nuevo_participante))
 
         # 5. Confirmar todos los cambios
@@ -247,7 +246,7 @@ def get_participant_report(search_term=None, filter_facultad=None, filter_escuel
                            date_start=None, date_end=None, 
                            noti_date_start=None, noti_date_end=None): # <-- NUEVOS PARÁMETROS
     """
-    MODIFICADO: Añadidos filtros de rango de fechas para la FECHA DE NOTIFICACIÓN
+    filtros de rango de fechas para la FECHA DE NOTIFICACIÓN
     (noti_date_start y noti_date_end).
     """
     params = []
@@ -327,6 +326,67 @@ def get_participant_report(search_term=None, filter_facultad=None, filter_escuel
     except mysql.connector.Error as err:
         print(f"Error al generar reporte de participantes: {err}")
         return []
+    finally:
+        cursor.close()
+        conn.close()
+        
+def get_all_facultades_map():
+    facultades_map = {}
+    
+    conn = get_db_connection()
+    if not conn:
+        print("Error cargando mapa de facultades: No se pudo conectar a la BD.")
+        return {}
+        
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        cursor.execute("SELECT idFacultad, nombreFacultad FROM Facultades")
+        
+        rows = cursor.fetchall() 
+        
+        for row in rows:
+            nombre_limpio = str(row['nombreFacultad']).strip().upper()
+            facultades_map[nombre_limpio] = row['idFacultad']
+            
+        return facultades_map
+        
+    except mysql.connector.Error as e:
+        print(f"Error cargando mapa de facultades: {e}")
+        return {}
+        
+    finally:
+        cursor.close()
+        conn.close()
+
+def get_all_escuelas_map():
+    escuelas_map = {}
+    
+    conn = get_db_connection()
+    if not conn:
+        print("Error cargando mapa de escuelas: No se pudo conectar a la BD.")
+        return {}
+
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        cursor.execute("SELECT idEscuela, nombreEscuela, fk_idFacultad FROM Escuelas") 
+        
+        rows = cursor.fetchall()
+        
+        for row in rows:
+            nombre_limpio = str(row['nombreEscuela']).strip().upper()
+            escuelas_map[nombre_limpio] = {
+                'idEscuela': row['idEscuela'],
+                'fk_idFacultad': row['fk_idFacultad']
+            }
+        
+        return escuelas_map
+        
+    except mysql.connector.Error as e:
+        print(f"Error cargando mapa de escuelas: {e}")
+        return {}
+        
     finally:
         cursor.close()
         conn.close()

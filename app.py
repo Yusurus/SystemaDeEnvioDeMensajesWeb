@@ -251,57 +251,156 @@ def crear_app():
     @app.route('/upload-excel', methods=['POST'])
     def upload_excel():
         """
-        Ahora puede asignar una facultad y/o escuela a
-        TODOS los participantes del Excel subido.
+        Lógica de carga de Excel simplificada con DEPURACIÓN y corrección 'nan'.
         """
+        print("\n--- [DEBUG] INICIANDO upload_excel ---")
+        
         if 'excel_file' not in request.files:
             flash('No se encontró ningún archivo', 'warning')
+            print("DEBUG: Error - No se encontró 'excel_file' en request.files")
             return redirect(url_for('index', tab='administrar'))
         
         file = request.files['excel_file']
         evento_id = request.form['evento_id']
         
-        # IDs opcionales para todo el lote
-        facultad_id = request.form.get('facultad_id')
-        escuela_id = request.form.get('escuela_id')
-        if not facultad_id: facultad_id = None
-        if not escuela_id: escuela_id = None
-        
         if file.filename == '' or not evento_id:
             flash('No se seleccionó archivo o evento de destino', 'warning')
+            print(f"DEBUG: Error - Filename vacío o evento_id no provisto (Evento: {evento_id})")
             return redirect(url_for('index', tab='administrar'))
         
         if file:
             try:
                 df = pd.read_excel(file)
+                print(f"DEBUG: Excel leído. {len(df)} filas encontradas.")
                 
                 if 'NombresCompletos' not in df.columns or 'CorreoElectronico' not in df.columns:
                     flash("Error: El archivo Excel debe tener las columnas 'NombresCompletos' y 'CorreoElectronico'", 'warning')
+                    print("DEBUG: Error - Columnas requeridas no encontradas.")
                     return redirect(url_for('index', tab='administrar'))
 
                 success_count = 0
                 fail_count = 0
                 
+                # --- Cargar mapas ANTES del bucle ---
+                print("DEBUG: Cargando mapas de traducción...")
+                facultad_map = model.get_all_facultades_map()
+                escuela_map = model.get_all_escuelas_map()
+                
+                print(f"DEBUG: Mapa de Facultades cargado. {len(facultad_map)} items.")
+                print(f"DEBUG: Mapa de Escuelas cargado. {len(escuela_map)} items.")
+                
+                has_facultad_col = 'Facultad' in df.columns
+                has_escuela_col = 'Escuela' in df.columns
+                print(f"DEBUG: Columna 'Facultad' existe en Excel: {has_facultad_col}")
+                print(f"DEBUG: Columna 'Escuela' existe en Excel: {has_escuela_col}")
+
                 for index, row in df.iterrows():
+                    print(f"\n--- [DEBUG] Procesando Fila {index + 2} ---")
+                    
                     nombres = str(row['NombresCompletos'])
                     correo = str(row['CorreoElectronico'])
+                    print(f"DEBUG: Nombre='{nombres}', Correo='{correo}'")
                     
-                    # Reutilizamos nuestra función de modelo actualizada
-                    success, _ = model.add_new_participant(
-                        nombres, correo, evento_id, facultad_id, escuela_id
+                    facultad_id_final = None
+                    escuela_id_final = None
+                    valid_row = True
+                    
+                    facu_id_from_excel = None 
+                    facu_id_from_escu_db = None 
+                    
+                    # --- 1. Procesar la columna 'escuela' (CON FIX 'NAN') ---
+                    nombre_escuela_raw = ""
+                    if has_escuela_col:
+                        nombre_escuela_raw = str(row.get('Escuela', '')).strip()
+                    print(f"DEBUG: Leyendo 'Escuela': '{nombre_escuela_raw}'")
+
+                    nombre_busqueda_escuela = nombre_escuela_raw.upper()
+                    
+                    # ¡CORRECCIÓN! Solo buscar si NO está vacío y NO es 'NAN'
+                    if nombre_escuela_raw and nombre_busqueda_escuela != 'NAN':
+                        print(f"DEBUG: Buscando escuela en mapa: '{nombre_busqueda_escuela}'")
+                        escuela_info = escuela_map.get(nombre_busqueda_escuela)
+                        print(f"DEBUG: Resultado búsqueda escuela: {escuela_info}")
+                        
+                        if escuela_info:
+                            escuela_id_final = escuela_info['idEscuela']
+                            # Usando la llave de tu log
+                            facu_id_from_escu_db = escuela_info.get('fk_idFacultad') 
+                            print(f"DEBUG: Escuela encontrada. idEscuela={escuela_id_final}, idFacultad_detectada={facu_id_from_escu_db}")
+                        else:
+                            print("DEBUG: FALLA (A) - Nombre de escuela no encontrado en la BD.")
+                            valid_row = False 
+                    
+                    # --- 2. Procesar la columna 'facultad' (CON FIX 'NAN') ---
+                    nombre_facultad_raw = ""
+                    if has_facultad_col:
+                        nombre_facultad_raw = str(row.get('Facultad', '')).strip()
+                    print(f"DEBUG: Leyendo 'Facultad': '{nombre_facultad_raw}'")
+
+                    nombre_busqueda_facultad = nombre_facultad_raw.upper()
+                    
+                    # ¡CORRECCIÓN! Solo buscar si NO está vacío y NO es 'NAN'
+                    if nombre_facultad_raw and nombre_busqueda_facultad != 'NAN':
+                        print(f"DEBUG: Buscando facultad en mapa: '{nombre_busqueda_facultad}'")
+                        facu_id_from_excel = facultad_map.get(nombre_busqueda_facultad)
+                        print(f"DEBUG: Resultado búsqueda Facultad: {facu_id_from_excel}")
+                        
+                        if not facu_id_from_excel:
+                            print("DEBUG: FALLA (B) - Nombre de Facultad no encontrado en la BD.")
+                            valid_row = False
+
+                    # --- 3. Validar y Reconciliar los IDs ---
+                    print("DEBUG: Iniciando validación de IDs...")
+                    
+                    if not valid_row:
+                        print(f"DEBUG: FALLA (C) - Fila invalidada por búsqueda fallida (A o B).")
+                        fail_count += 1
+                        continue # Saltar a la siguiente fila
+
+                    # Error 2: Conflicto
+                    if facu_id_from_excel and facu_id_from_escu_db and facu_id_from_excel != facu_id_from_escu_db:
+                        print(f"DEBUG: FALLA (D) - Conflicto de IDs. Facultad Excel ({facu_id_from_excel}) != Facultad de Escuela en BD ({facu_id_from_escu_db})")
+                        fail_count += 1
+                        continue 
+                    
+                    # Error 3: (Tu requisito)
+                    if escuela_id_final and not facu_id_from_escu_db and not facu_id_from_excel:
+                        print(f"DEBUG: FALLA (E) - Se proveyó escuela, pero no tiene facultad en BD y no se proveyó facultad en Excel.")
+                        fail_count += 1
+                        continue 
+
+                    # --- 4. Asignación Final ---
+                    facultad_id_final = facu_id_from_excel or facu_id_from_escu_db
+                    
+                    print(f"DEBUG: IDs Finales Asignados: idFacultad={facultad_id_final}, idEscuela={escuela_id_final}")
+                    
+                    # --- 5. Insertar en la Base de Datos ---
+                    print(f"DEBUG: Llamando a model.add_new_participant(...) con evento_id={evento_id}")
+                    
+                    # Asumo que tu función devuelve (bool, str) para el log
+                    success, message = model.add_new_participant(
+                        nombres, correo, evento_id, 
+                        facultad_id_final, # Puede ser None
+                        escuela_id_final   # Puede ser None
                     )
                     
                     if success:
+                        print("DEBUG: Inserción Exitosa.")
                         success_count += 1
                     else:
+                        print(f"DEBUG: FALLA (F) - model.add_new_participant retornó Falso. Mensaje: {message}")
                         fail_count += 1
                         
-                flash(f"Importación completada: {success_count} agregados, {fail_count} fallaron.", 'success')
+                print(f"\nDEBUG: Proceso finalizado. Success={success_count}, Fail={fail_count}")
+                flash(f"Importación completada: {success_count} agregados, {fail_count} fallaron.", 'success' if success_count > 0 else 'warning')
             
             except Exception as e:
+                print(f"DEBUG: FALLA (GLOBAL) - Ocurrió una excepción: {e}")
                 flash(f"Error al procesar el archivo: {e}", 'warning')
                 
         return redirect(url_for('index', tab='administrar'))
+    
+    
     return app
 
 if __name__ == '__main__':
