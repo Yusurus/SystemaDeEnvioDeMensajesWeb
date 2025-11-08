@@ -22,4 +22,4 @@ DIRECCION_RECOJO = os.getenv('DIRECCION_RECOJO')
 EMAIL_BATCH_LIMIT = 50
 
 # Límite MÁXIMO de correos a enviar por DÍA (para proteger la cuenta)
-EMAIL_DAILY_LIMIT = 100
+EMAIL_DAILY_LIMIT = 150

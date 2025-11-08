@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Notificaciones</title>
+    
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    
+    <style>
+        /* --- (Todos tus estilos CSS anteriores van aquí) --- */
+        :root {
+            --color-primario: #007bff;
+            --color-secundario: #6c757d;
+            --color-exito: #28a745;
+            --color-advertencia: #ffc107;
+            --color-peligro: #dc3545;
+            --color-info: #17a2b8;
+            --color-fondo: #f8f9fa;
+            --color-texto: #212529;
+            --color-borde: #dee2e6;
+            --color-blanco: #fff;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            background-color: var(--color-fondo);
+            color: var(--color-texto);
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            background: var(--color-blanco);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+        h1, h2, h3 {
+            color: #333;
+            margin: 0;
+            padding: 20px 25px;
+            border-bottom: 1px solid var(--color-borde);
+        }
+        h1 { background-color: var(--color-fondo); }
+        h2 { margin-bottom: 20px; padding: 0; border: none; }
+        h3 { 
+            font-size: 1.25em; 
+            padding: 15px 0 10px 0; 
+            border-bottom: 2px solid var(--color-primario); 
+            margin-bottom: 20px;
+        }
+        /* --- Estilos de Pestañas (Tabs) --- */
+        .tab-nav {
+            display: flex;
+            border-bottom: 2px solid var(--color-borde);
+            background: #fdfdfd;
+        }
+        .tab-button {
+            padding: 15px 25px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--color-secundario);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+        .tab-button:hover { color: #000; }
+        .tab-button.active {
+            color: var(--color-primario);
+            border-bottom-color: var(--color-primario);
+        }
+        .tab-content { padding: 25px; }
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+
+        /* --- Estilos de Componentes (sin cambios) --- */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px 15px;
+            border: 1px solid var(--color-borde);
+            text-align: left;
+            vertical-align: top;
+            white-space: nowrap; /* Evita que el texto se rompa */
+        }
+        th { background-color: var(--color-fondo); font-weight: 600; }
+        tr:nth-child(even) { background-color: #fcfcfc; }
+        
+        button[type="submit"] {
+            background-color: var(--color-exito);
+            color: white;
+            padding: 12px 22px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }
+        button[type="submit"]:hover { background-color: #218838; }
+
+        .empty, .limit-msg {
+            color: var(--color-secundario);
+            font-style: italic;
+            font-size: 1.1em;
+            text-align: center;
+            padding: 40px;
+            background: var(--color-fondo);
+            border-radius: 5px;
+        }
+        .status-bar {
+            background-color: var(--color-info);
+            color: var(--color-blanco);
+            padding: 15px 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+        .flash {
+            padding: 15px; margin-bottom: 20px; border-radius: 5px;
+            font-weight: 500; border: 1px solid transparent;
+        }
+        .success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+        .warning { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
+        .info { background-color: #d1ecf1; color: #0c5460; border-color: #bee5eb; }
+        
+        /* --- Estilos para Formularios --- */
+        .form-grid { display: flex; gap: 30px; }
+        .form-column { flex: 1; min-width: 0; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #495057;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--color-borde);
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        .form-group select:disabled {
+            background-color: var(--color-fondo);
+            cursor: not-allowed;
+        }
+        .form-group button {
+            background-color: var(--color-primario);
+            margin-top: 10px;
+        }
+        .form-group button:hover { background-color: #0069d9; }
+        .form-group small { color: #555; margin-top: 5px; display: block; }
+
+        /* --- Estilos para Buscador y Exportar --- */
+        .report-controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 20px;
+            gap: 20px;
+        }
+        .search-form {
+            display: flex;
+            flex-wrap: wrap; /* Permite que los filtros pasen a la siguiente línea si no caben */
+            align-items: flex-end;
+            gap: 10px;
+            flex-grow: 1;
+        }
+        .search-form .form-group {
+            margin-bottom: 0;
+            flex: 1; /* Todos los filtros intentan tener el mismo tamaño */
+            min-width: 150px; /* Ancho mínimo antes de saltar de línea */
+        }
+        .export-button {
+            background-color: var(--color-secundario);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            text-decoration: none; /* Para el <a> */
+            height: 42px; /* Alinear con el input */
+            box-sizing: border-box;
+            white-space: nowrap;
+        }
+        .export-button:hover {
+            background-color: #5a6268;
+        }
+
+        /* --- NUEVO: Estilo para la cabecera de la vista --- */
+        .view-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: -10px; /* Compensa el margen de <h3> */
+        }
+        .view-header h3 {
+            margin-bottom: 0;
+            border-bottom: none;
+        }
+        .view-header .export-button {
+            margin-bottom: 20px; /* Alinea con el <h3> */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sistema de Notificación de Certificados</h1>
+
+        <nav class="tab-nav">
+            <button class="tab-button" onclick="openTab('notificar')">Notificar</button>
+            <button class="tab-button" onclick="openTab('reporte-general')">Reporte General</button>
+            <button class="tab-button" onclick="openTab('vistas')">Vistas</button> <button class="tab-button" onclick="openTab('administrar')">Administrar</button>
+        </nav>
+
+        <div style="padding: 25px 25px 0 25px;">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="tab-content">
+            
+            <div id="notificar" class="tab-pane">
+                <h2>Enviar Notificaciones</h2>
+                {% if status %}
+                <div class="status-bar">
+                    Envíos en las últimas 24h: <strong>{{ status.count_today }} / {{ status.daily_limit }}</strong>
+                    (Límite por lote: {{ config.EMAIL_BATCH_LIMIT }})
+                </div>
+                {% endif %}
+                
+                {% if participants %}
+                    <form action="{{ url_for('send_notifications') }}" method="POST">
+                        <button type="submit">Notificar Siguiente Lote ({{ participants|length }})</button>
+                    </form>
+                    
+                    <table id="tablaNotificar" class="display" style="width:100%">
+                        <thead> 
+                            <tr>
+                                <th>Nombre Completo</th>
+                                <th>Correo</th>
+                                <th>Evento</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in participants %}
+                            <tr> 
+                                <td>{{ p.nombresCompleto }}</td> 
+                                <td>{{ p.correo }}</td> 
+                                <td>{{ p.nombre_evento }}</td> 
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="empty">¡Excelente! No hay participantes pendientes de notificar.</p>
+                    {% if status and status.remaining_today <= 0 and status.count_today > 0 %}
+                        <p class="limit-msg">Se ha alcanzado el límite de envíos de 24 horas. Vuelve a intentarlo más tarde.</p>
+                    {% endif %}
+                {% endif %}
+            </div>
+
+            <div id="reporte-general" class="tab-pane">
+                <h2>Reporte General de Participantes</h2>
+                
+                <div class="report-controls">
+                    <form action="{{ url_for('index') }}" method="GET" class="search-form">
+                        <input type="hidden" name="tab" value="reporte-general">
+                        <div class="form-group">
+                            <label for="search_name">Buscar por Nombre</label>
+                            <input type="text" id="search_name" name="search_name" value="{{ search_name }}" onchange="this.form.submit()">
+                        </div>
+                        <div class="form-group">
+                            <label for="filter_facultad">Facultad</label>
+                            <select id="filter_facultad" name="filter_facultad" onchange="this.form.submit()">
+                                <option value="">-- Todas --</option>
+                                {% for f in facultades_list %}
+                                <option value="{{ f.idFacultad }}" {% if f.idFacultad|string == current_facultad %}selected{% endif %}>
+                                    {{ f.nombreFacultad }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filter_escuela">Escuela</label>
+                            <select id="filter_escuela" name="filter_escuela" onchange="this.form.submit()">
+                                <option value="">-- Todas --</option>
+                                {% for es in escuelas_list %}
+                                <option value="{{ es.idEscuela }}" {% if es.idEscuela|string == current_escuela %}selected{% endif %}>
+                                    {{ es.nombreEscuela }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="date_start">Evento (Desde)</label>
+                            <input type="date" id="date_start" name="date_start" value="{{ current_date_start }}" onchange="this.form.submit()">
+                        </div>
+                        <div class="form-group">
+                            <label for="date_end">Evento (Hasta)</label>
+                            <input type="date" id="date_end" name="date_end" value="{{ current_date_end }}" onchange="this.form.submit()">
+                        </div>
+                        <div class="form-group">
+                            <label for="noti_date_start">Notif. (Desde)</label>
+                            <input type="date" id="noti_date_start" name="noti_date_start" value="{{ current_noti_date_start }}" onchange="this.form.submit()">
+                        </div>
+                        <div class="form-group">
+                            <label for="noti_date_end">Notif. (Hasta)</label>
+                            <input type="date" id="noti_date_end" name="noti_date_end" value="{{ current_noti_date_end }}" onchange="this.form.submit()">
+                        </div>
+                    </form>
+                    
+                    <a href="{{ url_for('export_reporte_general', search_name=search_name, filter_facultad=current_facultad, filter_escuela=current_escuela, date_start=current_date_start, date_end=current_date_end, noti_date_start=current_noti_date_start, noti_date_end=current_noti_date_end) }}" class="export-button">
+                        Exportar a Excel
+                    </a>
+                </div>
+
+                {% if report_data %}
+                    <div style="overflow-x: auto;">
+                        <table id="tablaReporteGeneral" class="display" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Correo</th>
+                                    <th>Estado</th>
+                                    <th>Evento</th>
+                                    <th>Fecha Evento</th>
+                                    <th>Facultad</th>
+                                    <th>Escuela</th>
+                                    <th>Fecha Notificación</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in report_data %}
+                                <tr>
+                                    <td>{{ r.nombresCompleto }}</td>
+                                    <td>{{ r.correo }}</td>
+                                    <td>{{ r.estadoNotificado | capitalize }}</td>
+                                    <td>{{ r.nombre_evento }}</td>
+                                    <td>{{ r.fecha_evento.strftime('%Y-%m-%d') if r.fecha_evento else 'N/A' }}</td>
+                                    <td>{{ r.nombre_facultad or 'N/A' }}</td>
+                                    <td>{{ r.nombre_escuela or 'N/A' }}</td>
+                                    <td>
+                                        {% if r.fecha_notificacion %}
+                                            {{ r.fecha_notificacion.strftime('%Y-%m-%d %H:%M:%S') }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="empty">No se encontraron participantes con esos filtros.</p>
+                {% endif %}
+            </div>
+
+            <div id="vistas" class="tab-pane">
+                <h2>Vistas de Resumen</h2>
+
+                <div class="view-header">
+                    <h3>Resumen de Eventos</h3>
+                    <a href="{{ url_for('export_excel_eventos') }}" class="export-button">Exportar Eventos</a>
+                </div>
+                {% if event_summary %}
+                <div style="overflow-x: auto;">
+                    <table id="tablaEventos" class="display" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>Nombre del Evento</th>
+                                <th>Fecha</th>
+                                <th>Nro. de Participantes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for evento in event_summary %}
+                            <tr>
+                                <td>{{ evento.nombre_evento }}</td>
+                                <td>{{ evento.fecha.strftime('%Y-%m-%d') if evento.fecha else 'N/A' }}</td>
+                                <td>{{ evento.numero_participantes }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="empty">No hay eventos para mostrar.</p>
+                {% endif %}
+                
+                <hr style="margin: 40px 0;">
+
+                <div class="view-header">
+                    <h3>Listado Total de Participantes</h3>
+                    <a href="{{ url_for('export_excel_participantes') }}" class="export-button">Exportar Participantes</a>
+                </div>
+                {% if all_participants %}
+                <div style="overflow-x: auto;">
+                    <table id="tablaParticipantes" class="display" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>Nombres Completos</th>
+                                <th>Correo Electrónico</th>
+                                <th>Evento</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in all_participants %}
+                            <tr>
+                                <td>{{ p.nombresCompleto }}</td>
+                                <td>{{ p.correo }}</td>
+                                <td>{{ p.nombre_evento }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="empty">No hay participantes para mostrar.</p>
+                {% endif %}
+
+            </div>
+
+            <div id="administrar" class="tab-pane">
+                <h2>Administrar Datos</h2>
+                <div class="form-grid">
+                    <div class="form-column">
+                        <h3>Agregar Nuevo Evento</h3>
+                        <form action="{{ url_for('add_event') }}" method="POST">
+                            <div class="form-group"> <label for="nombre_evento">Nombre del Evento</label> <input type="text" id="nombre_evento" name="nombre_evento" required> </div>
+                            <div class="form-group"> <label for="fecha_evento">Fecha del Evento</label> <input type="date" id="fecha_evento" name="fecha_evento" required> </div>
+                            <div class="form-group"> <button type="submit">Guardar Evento</button> </div>
+                        </form>
+                    </div>
+                    <div class="form-column">
+                        <h3>Agregar Nuevo Participante</h3>
+                        <form action="{{ url_for('add_participant') }}" method="POST">
+                            <div class="form-group"> <label for="nombres_participante">Nombres Completos</label> <input type="text" id="nombres_participante" name="nombres_participante" required> </div>
+                            <div class="form-group"> <label for="correo_participante">Correo Electrónico</label> <input type="email" id="correo_participante" name="correo_participante" required> </div>
+                            <div class="form-group">
+                                <label for="evento_id">Asignar a Evento (Requerido)</label>
+                                <select id="evento_id" name="evento_id" required>
+                                    <option value="" disabled selected>-- Selecciona un evento --</option>
+                                    {% for evento in events_list %}
+                                    <option value="{{ evento.idEvento }}">{{ evento.nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="facultad_id">Asignar a Facultad (Opcional)</label>
+                                <select id="facultad_id" name="facultad_id" onchange="updateEscuelas(this.value, 'escuela_id')">
+                                    <option value="">-- Ninguna --</option>
+                                    {% for f in facultades_list %}
+                                    <option value="{{ f.idFacultad }}">{{ f.nombreFacultad }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="escuela_id">Asignar a Escuela (Opcional)</label>
+                                <select id="escuela_id" name="escuela_id" disabled>
+                                    <option value="">-- Ninguna --</option>
+                                </select>
+                            </div>
+                            <div class="form-group"> <button type="submit">Guardar Participante</button> </div>
+                        </form>
+                    </div>
+                </div>
+                <hr style="margin: 40px 0;">
+                <div>
+                    <h3>Importar Participantes desde Excel</h3>
+                    <form action="{{ url_for('upload_excel') }}" method="POST" enctype="multipart/form-data" style="max-width: 600px;">
+                        <div class="form-group">
+                            <label for="evento_id_excel">1. Evento de destino (Requerido)</label>
+                            <select id="evento_id_excel" name="evento_id" required>
+                                <option value="" disabled selected>-- Selecciona un evento --</option>
+                                {% for evento in events_list %}
+                                <option value="{{ evento.idEvento }}">{{ evento.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="excel_file">2. Selecciona el archivo Excel (.xlsx)</label>
+                            <input type="file" id="excel_file" name="excel_file" accept=".xlsx" required>
+                            <small>El Excel debe tener solo dos columnas: <strong>NombresCompletos</strong> , <strong>CorreoElectronico</strong> , <strong>Escuela</strong> y <strong>Facultad</strong></small>
+                        </div>
+                        <div class="form-group">
+                            <button type="submit">Importar Participantes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
+    <script>
+        const allEscuelas = {{ escuelas_list | tojson }};
+        var dataTables = {};
+
+        function updateEscuelas(selectedFacultadId, targetEscuelaDropdownId) {
+            // ... (función sin cambios)
+            const escuelaDropdown = document.getElementById(targetEscuelaDropdownId);
+            escuelaDropdown.innerHTML = '';
+            const defaultOption = document.createElement('option');
+            defaultOption.value = "";
+            defaultOption.textContent = "-- Ninguna --";
+            escuelaDropdown.appendChild(defaultOption);
+            if (!selectedFacultadId || selectedFacultadId === "") {
+                escuelaDropdown.disabled = true;
+                return;
+            }
+            allEscuelas.forEach(escuela => {
+                if (escuela.fk_idFacultad.toString() === selectedFacultadId) {
+                    const option = document.createElement('option');
+                    option.value = escuela.idEscuela;
+                    option.textContent = escuela.nombreEscuela;
+                    escuelaDropdown.appendChild(option);
+                }
+            });
+            escuelaDropdown.disabled = false;
+        }
+
+        function openTab(tabName) {
+            // ... (código de cambio de pestaña sin cambios)
+            var i, tabcontent, tabbuttons;
+            tabcontent = document.getElementsByClassName("tab-pane");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tabbuttons = document.getElementsByClassName("tab-button");
+            for (i = 0; i < tabbuttons.length; i++) {
+                tabbuttons[i].classList.remove("active");
+            }
+            var tabToShow = document.getElementById(tabName);
+            if(tabToShow) {
+                tabToShow.style.display = "block";
+            }
+            var buttons = document.getElementsByClassName("tab-button");
+            for (i = 0; i < buttons.length; i++) {
+                if (buttons[i].getAttribute("onclick") === "openTab('" + tabName + "')") {
+                    buttons[i].classList.add("active");
+                }
+            }
+
+            // MODIFICADO: Ajuste de columnas actualizado
+            if (tabName === 'notificar' && dataTables.notificar) {
+                dataTables.notificar.columns.adjust();
+            }
+            if (tabName === 'reporte-general' && dataTables.reporteGeneral) {
+                dataTables.reporteGeneral.columns.adjust().draw(); 
+            }
+            // NUEVO: Ajuste para las tablas de la pestaña "Vistas"
+            if (tabName === 'vistas') {
+                if (dataTables.eventos) dataTables.eventos.columns.adjust().draw();
+                if (dataTables.participantes) dataTables.participantes.columns.adjust().draw();
+            }
+        }
+
+        $(document).ready(function() {
+            const spanishLang = { "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json" };
+
+            // Tabla Notificar
+            dataTables.notificar = $('#tablaNotificar').DataTable({ 
+                language: spanishLang, 
+                responsive: true 
+            });
+            
+            // Tabla Reporte General
+            dataTables.reporteGeneral = $('#tablaReporteGeneral').DataTable({ 
+                language: spanishLang, 
+                scrollX: true 
+            });
+
+            // NUEVO: Inicializar tablas de la pestaña "Vistas"
+            dataTables.eventos = $('#tablaEventos').DataTable({
+                language: spanishLang,
+                scrollX: true
+            });
+            dataTables.participantes = $('#tablaParticipantes').DataTable({
+                language: spanishLang,
+                scrollX: true
+            });
+
+            openTab('{{ active_tab | default('notificar') }}');
+        });
+    </script>
+</body>
+</html>
